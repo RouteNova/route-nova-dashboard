@@ -8,7 +8,14 @@ import {
   FaGraduationCap, 
   FaExclamationTriangle, 
   FaSignOutAlt,
-  FaServer
+  FaServer,
+  FaMapMarkerAlt,
+  FaUsers,
+  FaUserTie,
+  FaClipboardList,
+  FaChartBar,
+  FaUserShield,
+  FaCog
 } from 'react-icons/fa';
 
 export default function MainLayout() {
@@ -26,14 +33,28 @@ export default function MainLayout() {
     switch (location.pathname) {
       case '/dashboard':
         return 'Panel Principal';
-      case '/autobuses':
-        return 'Autobuses';
-      case '/rutas':
-        return 'Rutas Escolares';
+      case '/monitoreo':
+        return 'Monitoreo en Tiempo Real';
       case '/estudiantes':
-        return 'Estudiantes';
+        return 'Gestión de Estudiantes';
+      case '/padres':
+        return 'Gestión de Padres / Tutores';
+      case '/conductores':
+        return 'Gestión de Conductores';
+      case '/autobuses':
+        return 'Gestión de Autobuses';
+      case '/rutas':
+        return 'Gestión de Rutas Escolares';
+      case '/eventos':
+        return 'Eventos de Transporte';
       case '/incidencias':
-        return 'Incidencias';
+        return 'Gestión de Incidencias';
+      case '/reportes':
+        return 'Análisis y Reportes';
+      case '/usuarios':
+        return 'Gestión de Usuarios';
+      case '/configuracion':
+        return 'Configuración del Sistema';
       default:
         return 'Dashboard';
     }
@@ -50,67 +71,136 @@ export default function MainLayout() {
         borderLeft: 'none',
         display: 'flex',
         flexDirection: 'column',
-        padding: '24px',
+        padding: '24px 20px',
         position: 'fixed',
         height: '100vh',
         zIndex: 10
       }}>
         {/* Marca / Logotipo */}
-        <div style={{ marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '8px' }}>
           <span style={{ fontSize: '28px' }}>🚌</span>
           <span style={{ fontFamily: 'var(--font-heading)', fontWeight: '800', fontSize: '22px', color: 'var(--color-primary)' }}>RouteNova</span>
         </div>
         
-        {/* Navegación */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-          <NavLink 
-            to="/dashboard" 
-            className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-          >
-            <FaChartPie />
-            <span>Panel Principal</span>
-          </NavLink>
-          <NavLink 
-            to="/autobuses" 
-            className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-            onClick={(e) => { e.preventDefault(); }}
-            style={{ opacity: 0.6, cursor: 'not-allowed' }}
-          >
-            <FaBus />
-            <span>Autobuses</span>
-          </NavLink>
-          <NavLink 
-            to="/rutas" 
-            className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-            onClick={(e) => { e.preventDefault(); }}
-            style={{ opacity: 0.6, cursor: 'not-allowed' }}
-          >
-            <FaRoute />
-            <span>Rutas</span>
-          </NavLink>
-          <NavLink 
-            to="/estudiantes" 
-            className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-            onClick={(e) => { e.preventDefault(); }}
-            style={{ opacity: 0.6, cursor: 'not-allowed' }}
-          >
-            <FaGraduationCap />
-            <span>Estudiantes</span>
-          </NavLink>
-          <NavLink 
-            to="/incidencias" 
-            className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-            onClick={(e) => { e.preventDefault(); }}
-            style={{ opacity: 0.6, cursor: 'not-allowed' }}
-          >
-            <FaExclamationTriangle />
-            <span>Incidencias</span>
-          </NavLink>
+        {/* Navegación Agrupada con Scroll */}
+        <nav style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '20px', 
+          flex: 1, 
+          overflowY: 'auto',
+          paddingRight: '4px',
+          marginBottom: '20px'
+        }}>
+          {/* OPERACIONES */}
+          <div>
+            <div className="nav-group-header">OPERACIONES</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                <FaChartPie />
+                <span>Dashboard</span>
+              </NavLink>
+              <NavLink to="/monitoreo" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaMapMarkerAlt />
+                <span>Monitoreo en Vivo</span>
+              </NavLink>
+            </div>
+          </div>
+
+          {/* GESTIÓN */}
+          <div>
+            <div className="nav-group-header">GESTIÓN</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <NavLink to="/estudiantes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaGraduationCap />
+                <span>Estudiantes</span>
+              </NavLink>
+              <NavLink to="/padres" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaUsers />
+                <span>Padres/Tutores</span>
+              </NavLink>
+              <NavLink to="/conductores" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaUserTie />
+                <span>Conductores</span>
+              </NavLink>
+              <NavLink to="/autobuses" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaBus />
+                <span>Autobuses</span>
+              </NavLink>
+              <NavLink to="/rutas" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaRoute />
+                <span>Rutas</span>
+              </NavLink>
+            </div>
+          </div>
+
+          {/* CONTROL */}
+          <div>
+            <div className="nav-group-header">CONTROL</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <NavLink to="/eventos" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaClipboardList />
+                <span>Eventos de Ruta</span>
+              </NavLink>
+              <NavLink to="/incidencias" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaExclamationTriangle />
+                <span>Incidencias</span>
+              </NavLink>
+            </div>
+          </div>
+
+          {/* ANÁLISIS */}
+          <div>
+            <div className="nav-group-header">ANÁLISIS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <NavLink to="/reportes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaChartBar />
+                <span>Reportes</span>
+              </NavLink>
+            </div>
+          </div>
+
+          {/* SISTEMA */}
+          <div>
+            <div className="nav-group-header">SISTEMA</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <NavLink to="/usuarios" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaUserShield />
+                <span>Usuarios</span>
+              </NavLink>
+              <NavLink to="/configuracion" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+                onClick={(e) => { e.preventDefault(); }}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                <FaCog />
+                <span>Configuración</span>
+              </NavLink>
+            </div>
+          </div>
         </nav>
 
         {/* Info Perfil y Cierre Sesión */}
         {user && (
-          <div style={{ marginTop: 'auto', borderTop: '1px solid var(--color-border)', paddingTop: '20px' }}>
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
             <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '2px', color: 'var(--color-text)' }}>{user.nombre}</div>
             <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '16px', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user.correo}</div>
             <button 
