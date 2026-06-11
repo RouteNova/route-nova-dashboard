@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { authService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Vista de Inicio de Sesión para el Dashboard de RouteNova.
  */
-export default function Login({ onLoginSuccess }) {
+export default function Login() {
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -31,14 +32,7 @@ export default function Login({ onLoginSuccess }) {
 
     setLoading(true);
     try {
-      const data = await authService.login(correo, password);
-      // Validar si el rol es válido para acceder al panel (ej: administrador)
-      if (data.rol !== 'administrador') {
-        authService.logout();
-        setError('Acceso denegado. Este panel es exclusivo para administradores.');
-      } else {
-        onLoginSuccess(data);
-      }
+      await login(correo, password);
     } catch (err) {
       setError(err.message || 'Error al iniciar sesión. Comprueba tus credenciales.');
     } finally {
