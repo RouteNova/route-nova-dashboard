@@ -236,3 +236,60 @@ body {
   background: rgba(37, 99, 235, 0.1);
   font-weight: 600;
 }
+
+/* User Profile Menu & Notifications Dropdowns */
+.dropdown-menu {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-card);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+}
+
+.dropdown-item {
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.dropdown-item:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.dropdown-item.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.user-menu-btn {
+  border: 1px solid transparent;
+}
+
+.user-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+@media (prefers-color-scheme: dark) {
+  .user-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.navbar-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+@media (prefers-color-scheme: dark) {
+  .navbar-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Global Search Input Field inside Navbar */
+.search-bar-input {
+  box-shadow: var(--shadow-sm);
+}
+
+.search-bar-input:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
+}
