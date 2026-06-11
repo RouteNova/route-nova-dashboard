@@ -1,12 +1,13 @@
-import { authService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Vista de Panel de Control (Dashboard) inicial de RouteNova.
  */
-export default function Dashboard({ user, onLogout }) {
+export default function Dashboard() {
+  const { user, logout } = useAuth();
+
   const handleLogout = () => {
-    authService.logout();
-    onLogout();
+    logout();
   };
 
   return (

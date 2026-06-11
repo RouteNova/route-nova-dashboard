@@ -1,25 +1,16 @@
-import { useState } from 'react';
-import { authService } from './services/api';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import AppRoutes from './routes/AppRoutes';
 import './App.css';
 
 function App() {
-  const [user, setUser] = useState(() => authService.getCurrentUser());
-
-  const handleLoginSuccess = (userData) => {
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-  };
-
-  if (!user) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  return <Dashboard user={user} onLogout={handleLogout} />;
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }
 
 export default App;
