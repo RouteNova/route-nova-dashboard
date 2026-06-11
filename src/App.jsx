@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { authService } from './services/api';
-import Login from './views/Login';
-import Dashboard from './views/Dashboard';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import './App.css';
 
 function App() {
