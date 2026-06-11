@@ -1,25 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import Navbar from '../components/layout/Navbar';
 
 export default function MainLayout() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(prev => !prev);
+  };
+
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
+  };
+
   return (
-    <div className="dashboard-container" style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-background)' }}>
+    <div className="dashboard-layout">
+      {/* Backdrop overlay for tablets/mobiles */}
+      <div 
+        className={`sidebar-overlay ${isSidebarOpen ? 'active' : ''}`} 
+        onClick={closeSidebar}
+      />
+
       {/* Sidebar Barra Lateral */}
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
 
       {/* Contenido Principal */}
-      <div className="main-layout-content" style={{ 
-        flex: 1, 
-        marginLeft: '280px', 
-        padding: '40px',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh'
-      }}>
+      <div className="main-content-container">
         {/* Barra Superior de Navegación */}
-        <Navbar />
+        <Navbar onToggleSidebar={toggleSidebar} />
 
         {/* Vista Anidada Dinámica */}
         <main style={{ flex: 1 }}>

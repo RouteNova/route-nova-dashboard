@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaSearch, FaBell, FaMapMarkerAlt, FaServer } from 'react-icons/fa';
+import { FaSearch, FaBell, FaMapMarkerAlt, FaServer, FaBars } from 'react-icons/fa';
 import UserMenu from './UserMenu';
 
-export default function Navbar() {
+export default function Navbar({ onToggleSidebar }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -64,31 +64,23 @@ export default function Navbar() {
   };
 
   return (
-    <header 
-      style={{ 
-        marginBottom: '32px', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        background: 'var(--color-card)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '16px 24px',
-        boxShadow: 'var(--shadow-sm)',
-        position: 'relative',
-        zIndex: 50
-      }}
-    >
-      {/* Título Contextual */}
-      <div>
+    <header className="navbar-header">
+      {/* Título Contextual con Botón de Hamburguesa */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <button 
+          onClick={onToggleSidebar}
+          className="navbar-menu-btn"
+          aria-label="Abrir menú lateral"
+        >
+          <FaBars />
+        </button>
         <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', fontWeight: '800', margin: 0, color: 'var(--color-text)' }}>
           {getPageTitle()}
         </h1>
       </div>
 
       {/* Buscador Global (Mock) */}
-      <div className="search-bar-container" style={{ position: 'relative', width: '320px', display: 'flex', alignItems: 'center' }}>
+      <div className="navbar-search-container">
         <FaSearch style={{ position: 'absolute', left: '14px', color: 'var(--color-text-secondary)', fontSize: '14px' }} />
         <input 
           type="text" 
@@ -110,19 +102,9 @@ export default function Navbar() {
       </div>
 
       {/* Acciones de Cabecera */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <div className="navbar-actions">
         {/* Indicador de Estado de API */}
-        <div style={{ 
-          padding: '8px 16px', 
-          background: 'rgba(16, 185, 129, 0.08)', 
-          color: 'var(--color-secondary)', 
-          borderRadius: '100px', 
-          fontSize: '13px', 
-          fontWeight: '600', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px'
-        }}>
+        <div className="navbar-api-badge">
           <span style={{ width: '8px', height: '8px', background: 'var(--color-secondary)', borderRadius: '50%', display: 'inline-block' }}></span>
           <span>API Conectada</span>
         </div>
@@ -130,20 +112,10 @@ export default function Navbar() {
         {/* Acceso Rápido a Mapa en Vivo */}
         <button 
           onClick={() => navigate('/monitoreo')}
-          className="btn-primary"
-          style={{
-            width: 'auto',
-            padding: '8px 16px',
-            fontSize: '13px',
-            borderRadius: '100px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: 'none'
-          }}
+          className="btn-primary navbar-map-btn"
         >
           <FaMapMarkerAlt />
-          <span>Mapa en Vivo</span>
+          <span className="navbar-btn-text">Mapa en Vivo</span>
         </button>
 
         {/* Campana de Notificaciones con Dropdown */}

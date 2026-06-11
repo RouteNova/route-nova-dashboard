@@ -12,28 +12,22 @@ import {
   FaClipboardList,
   FaChartBar,
   FaUserShield,
-  FaCog
+  FaCog,
+  FaTimes
 } from 'react-icons/fa';
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }) {
   return (
-    <aside className="sidebar glass-panel" style={{ 
-      width: '280px', 
-      borderRadius: 0, 
-      borderTop: 'none', 
-      borderBottom: 'none', 
-      borderLeft: 'none',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '24px 20px',
-      position: 'fixed',
-      height: '100vh',
-      zIndex: 10
-    }}>
+    <aside className={`sidebar-container glass-panel ${isOpen ? 'open' : ''}`}>
       {/* Marca / Logotipo */}
-      <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '8px' }}>
-        <span style={{ fontSize: '28px' }}>🚌</span>
-        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: '800', fontSize: '22px', color: 'var(--color-primary)' }}>RouteNova</span>
+      <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '28px' }}>🚌</span>
+          <span style={{ fontFamily: 'var(--font-heading)', fontWeight: '800', fontSize: '22px', color: 'var(--color-primary)' }}>RouteNova</span>
+        </div>
+        <button className="sidebar-close-btn" onClick={onClose} aria-label="Cerrar menú lateral">
+          <FaTimes />
+        </button>
       </div>
       
       {/* Navegación Agrupada con Scroll */}
