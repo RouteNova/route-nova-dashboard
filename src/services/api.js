@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -8,6 +9,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // Tiempo límite de 10 segundos
 });
 
 // Interceptor de Solicitud (Request): Inserta el token de autenticación si está disponible
@@ -24,26 +26,42 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor de Respuesta (Response): Gestiona errores de forma centralizada (ej. 401 Unauthorized)
+// Interceptor de Respuesta (Response): Gestiona errores de forma centralizada con Toastify
 api.interceptors.response.use(
   (response) => {
     return response.data;
   },
   (error) => {
     if (error.response) {
-      // Si el servidor responde con 401 (Token inválido o expirado)
-      if (error.response.status === 401) {
+      const status = error.response.status;
+      const serverMessage = error.response.data?.error || 'Ocurrió un error en la solicitud.';
+
+      if (status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        toast.error('Sesión expirada o no autorizada. Redirigiendo...');
         
-        // Redirigir a login para resetear el estado de la aplicación
-        window.location.href = '/login';
+        // Retrasar redirección levemente para que el usuario alcance a leer el Toast
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+      } else if (status === 403) {
+        toast.error('Acceso denegado: No tienes permisos para esta acción.');
+      } else if (status === 404) {
+        toast.error(`No encontrado: ${serverMessage}`);
+      } else if (status >= 500) {
+        toast.error('Error interno del servidor backend. Inténtalo de nuevo más tarde.');
+      } else {
+        toast.error(serverMessage);
       }
       
-      const serverMessage = error.response.data?.error || 'Ocurrió un error en la solicitud.';
       return Promise.reject(new Error(serverMessage));
+    } else if (error.code === 'ECONNABORTED') {
+      toast.error('Tiempo de espera de conexión agotado (Timeout) con el servidor.');
+      return Promise.reject(new Error('Límite de tiempo agotado en la solicitud.'));
     }
     
+    toast.error('Error de red: No se pudo conectar con el servidor de la API.');
     return Promise.reject(new Error(error.message || 'Error de conexión con el servidor.'));
   }
 );
