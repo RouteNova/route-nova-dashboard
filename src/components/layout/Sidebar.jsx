@@ -61,9 +61,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <div>
           <div className="nav-group-header">GESTIÓN</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <NavLink to="/estudiantes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/estudiantes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaGraduationCap />
               <span>Estudiantes</span>
             </NavLink>

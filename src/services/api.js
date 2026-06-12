@@ -120,3 +120,22 @@ export const userService = {
   updateUser: (id, userData) => api.put(`/users/${id}`, userData),
   deleteUser: (id) => api.delete(`/users/${id}`),
 };
+
+/**
+ * Servicio de Gestión de Estudiantes (CRUD)
+ */
+export const studentService = {
+  getStudents: (params) => api.get('/students', { params }),
+  getStudentById: (id) => api.get(`/students/${id}`),
+  createStudent: (studentData) => api.post('/students', studentData),
+  updateStudent: (id, studentData) => api.put(`/students/${id}`, studentData),
+  deleteStudent: (id) => api.delete(`/students/${id}`),
+  getStudentEvents: (id) => api.get(`/students/${id}/events`),
+};
+
+/**
+ * Servicio de Gestión de Rutas
+ */
+export const routeService = {
+  getRoutes: () => api.get('/routes'),
+};
