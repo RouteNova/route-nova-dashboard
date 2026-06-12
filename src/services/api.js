@@ -15,7 +15,7 @@ export const api = axios.create({
 // Interceptor de Solicitud (Request): Inserta el token de autenticación si está disponible
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -37,8 +37,8 @@ api.interceptors.response.use(
       const serverMessage = error.response.data?.error || 'Ocurrió un error en la solicitud.';
 
       if (status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         toast.error('Sesión expirada o no autorizada. Redirigiendo...');
         
         // Retrasar redirección levemente para que el usuario alcance a leer el Toast
@@ -76,8 +76,8 @@ export const authService = {
     const data = await api.post('/auth/login', { correo, password });
     
     if (data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify({
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('user', JSON.stringify({
         _id: data._id,
         nombre: data.nombre,
         correo: data.correo,
@@ -88,20 +88,20 @@ export const authService = {
   },
 
   logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
   },
 
   getCurrentUser: () => {
-    const userStr = localStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;
   },
 
   getToken: () => {
-    return localStorage.getItem('token');
+    return sessionStorage.getItem('token');
   },
 
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    return !!sessionStorage.getItem('token');
   }
 };
