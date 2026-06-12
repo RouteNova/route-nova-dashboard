@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/api';
 import { toast } from 'react-toastify';
 
@@ -6,7 +6,29 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => authService.getCurrentUser());
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => !!authService.getToken());
+
+  useEffect(() => {
+    const verifySession = async () => {
+      const token = authService.getToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const profile = await authService.getProfile();
+        setUser(profile);
+      } catch (error) {
+        // Si el token es inválido o expiró, se limpia la sesión
+        authService.logout();
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifySession();
+  }, []);
 
   const login = async (correo, password) => {
     setLoading(true);

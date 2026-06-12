@@ -103,5 +103,9 @@ export const authService = {
 
   isAuthenticated: () => {
     return !!sessionStorage.getItem('token');
+  },
+
+  getProfile: () => {
+    return api.get('/auth/profile');
   }
 };
