@@ -115,9 +115,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <FaUserShield />
               <span>Usuarios</span>
             </NavLink>
-            <NavLink to="/configuracion" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/settings" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaCog />
               <span>Configuración</span>
             </NavLink>

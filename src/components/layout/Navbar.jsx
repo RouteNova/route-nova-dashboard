@@ -34,7 +34,7 @@ export default function Navbar({ onToggleSidebar }) {
         return 'Centro de Notificaciones';
       case '/usuarios':
         return 'Gestión de Usuarios';
-      case '/configuracion':
+      case '/settings':
         return 'Configuración del Sistema';
       default:
         return 'Dashboard';
