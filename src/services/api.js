@@ -152,3 +152,26 @@ export const padreService = {
   getPadreEstudiantes: (id) => api.get(`/padres/${id}/estudiantes`),
   associateEstudiantes: (id, studentIds) => api.post(`/padres/${id}/estudiantes`, { studentIds }),
 };
+
+/**
+ * Servicio de Gestión de Conductores (CRUD)
+ */
+export const conductorService = {
+  getConductors: (params) => api.get('/conductors', { params }),
+  getConductorById: (id) => api.get(`/conductors/${id}`),
+  createConductor: (conductorData) => api.post('/conductors', conductorData),
+  updateConductor: (id, conductorData) => api.put(`/conductors/${id}`, conductorData),
+  deleteConductor: (id) => api.delete(`/conductors/${id}`),
+};
+
+/**
+ * Servicio de Gestión de Autobuses (CRUD)
+ */
+export const autobusService = {
+  getAutobuses: (params) => api.get('/autobuses', { params }),
+  getAutobusById: (id) => api.get(`/autobuses/${id}`),
+  createAutobus: (autobusData) => api.post('/autobuses', autobusData),
+  updateAutobus: (id, autobusData) => api.put(`/autobuses/${id}`, autobusData),
+  deleteAutobus: (id) => api.delete(`/autobuses/${id}`),
+};
+
