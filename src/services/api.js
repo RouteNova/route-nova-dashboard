@@ -147,6 +147,7 @@ export const routeService = {
   deleteRoute: (id) => api.delete(`/routes/${id}`),
   getActiveRoutesMonitoring: () => api.get('/routes/active/monitoring'),
   getRouteMonitoring: (id) => api.get(`/routes/${id}/monitoring`),
+  getRouteHistory: (params) => api.get('/routes/history', { params }),
 };
 
 /**
