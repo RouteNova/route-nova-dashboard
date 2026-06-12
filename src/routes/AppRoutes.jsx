@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../pages/Login';
-import Dashboard from '../pages/Dashboard';
+import DashboardPage from '../pages/DashboardPage';
 import Usuarios from '../pages/Usuarios';
 import Estudiantes from '../pages/Estudiantes';
 import Padres from '../pages/Padres';
@@ -38,7 +38,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/usuarios" element={<Usuarios />} />
         <Route path="/estudiantes" element={<Estudiantes />} />
         <Route path="/padres" element={<Padres />} />
