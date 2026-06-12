@@ -202,3 +202,12 @@ export const eventService = {
   getEvents: (params) => api.get('/events', { params }),
 };
 
+/**
+ * Servicio de Centro de Notificaciones en vivo
+ */
+export const notificationService = {
+  getNotifications: () => api.get('/notifications'),
+  markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.patch('/notifications/read-all'),
+};
+

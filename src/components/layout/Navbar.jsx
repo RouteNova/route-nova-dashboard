@@ -1,32 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaSearch, FaBell, FaMapMarkerAlt, FaServer, FaBars } from 'react-icons/fa';
+import { FaSearch, FaMapMarkerAlt, FaBars } from 'react-icons/fa';
 import UserMenu from './UserMenu';
+import NotificationBell from '../notifications/NotificationBell';
 
 export default function Navbar({ onToggleSidebar }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [showNotifications, setShowNotifications] = useState(false);
-  const notificationRef = useRef(null);
-
-  // Mock de notificaciones iniciales del sistema
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'alert', text: 'Desvío de ruta detectado en Autobús 2', time: 'Hace 5 min', unread: true },
-    { id: 2, type: 'info', text: 'Ruta Especial 1 finalizada con éxito', time: 'Hace 15 min', unread: true },
-    { id: 3, type: 'warning', text: 'Tráfico pesado reportado en Ruta Norte', time: 'Hace 1 hora', unread: false }
-  ]);
-
-  const unreadCount = notifications.filter(n => n.unread).length;
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
-        setShowNotifications(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -44,12 +24,14 @@ export default function Navbar({ onToggleSidebar }) {
         return 'Gestión de Autobuses';
       case '/rutas':
         return 'Gestión de Rutas Escolares';
-      case '/eventos':
+      case '/events':
         return 'Eventos de Transporte';
-      case '/incidencias':
+      case '/incidents':
         return 'Gestión de Incidencias';
-      case '/reportes':
+      case '/reports':
         return 'Análisis y Reportes';
+      case '/notifications':
+        return 'Centro de Notificaciones';
       case '/usuarios':
         return 'Gestión de Usuarios';
       case '/configuracion':
@@ -57,10 +39,6 @@ export default function Navbar({ onToggleSidebar }) {
       default:
         return 'Dashboard';
     }
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, unread: false })));
   };
 
   return (
@@ -118,88 +96,8 @@ export default function Navbar({ onToggleSidebar }) {
           <span className="navbar-btn-text">Mapa en Vivo</span>
         </button>
 
-        {/* Campana de Notificaciones con Dropdown */}
-        <div className="notifications-container" ref={notificationRef} style={{ position: 'relative' }}>
-          <button 
-            onClick={() => setShowNotifications(!showNotifications)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--color-text)',
-              cursor: 'pointer',
-              fontSize: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              position: 'relative',
-              padding: '6px',
-              borderRadius: '50%',
-              transition: 'var(--transition)'
-            }}
-            className="navbar-icon-btn"
-          >
-            <FaBell style={{ opacity: 0.8 }} />
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '2px',
-                right: '2px',
-                background: 'var(--color-danger)',
-                color: 'white',
-                fontSize: '10px',
-                fontWeight: '700',
-                borderRadius: '50%',
-                width: '16px',
-                height: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '2px solid var(--color-card)'
-              }}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="glass-panel dropdown-menu animate-fade-in" style={{
-              position: 'absolute',
-              top: 'calc(100% + 12px)',
-              right: 0,
-              width: '320px',
-              padding: '12px',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: 'var(--shadow-lg)',
-              zIndex: 100
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
-                <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-text)' }}>Notificaciones</span>
-                {unreadCount > 0 && (
-                  <button 
-                    onClick={markAllAsRead}
-                    style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
-                  >
-                    Marcar leídas
-                  </button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto' }}>
-                {notifications.map(n => (
-                  <div key={n.id} style={{
-                    padding: '8px 10px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: n.unread ? 'rgba(37, 99, 235, 0.04)' : 'transparent',
-                    borderLeft: n.unread ? '3px solid var(--color-primary)' : '3px solid transparent',
-                    fontSize: '13px'
-                  }}>
-                    <div style={{ color: 'var(--color-text)', fontWeight: n.unread ? '600' : '400', marginBottom: '4px' }}>{n.text}</div>
-                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '11px' }}>{n.time}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Campana de Notificaciones en vivo */}
+        <NotificationBell />
 
         {/* Separador */}
         <div style={{ width: '1px', height: '24px', background: 'var(--color-border)' }}></div>
