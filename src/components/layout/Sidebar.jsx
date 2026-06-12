@@ -86,9 +86,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <div>
           <div className="nav-group-header">CONTROL</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <NavLink to="/eventos" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/events" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaClipboardList />
               <span>Eventos de Ruta</span>
             </NavLink>

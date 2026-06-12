@@ -194,3 +194,10 @@ export const incidentService = {
   deleteIncident: (id) => api.delete(`/incidents/${id}`),
 };
 
+/**
+ * Servicio de Historial de Eventos de Transporte
+ */
+export const eventService = {
+  getEvents: (params) => api.get('/events', { params }),
+};
+

@@ -9,6 +9,7 @@ import Autobuses from '../pages/Autobuses';
 import Rutas from '../pages/Rutas';
 import LiveMonitoring from '../pages/LiveMonitoring';
 import IncidentsPage from '../pages/IncidentsPage';
+import EventsPage from '../pages/EventsPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
@@ -44,6 +45,7 @@ export default function AppRoutes() {
         <Route path="/rutas" element={<Rutas />} />
         <Route path="/monitoreo" element={<LiveMonitoring />} />
         <Route path="/incidents" element={<IncidentsPage />} />
+        <Route path="/events" element={<EventsPage />} />
       </Route>
 
       {/* Redirects and Fallbacks */}
