@@ -72,7 +72,7 @@ export default function IncidentTable({ incidents, onSelect, onDelete, isAdmin }
   };
 
   return (
-    <div className="glass-panel users-table-container animate-fade-in" style={{ overflow: 'hidden' }}>
+    <div className="glass-panel users-table-container animate-fade-in" style={{ display: 'block', overflowX: 'auto' }}>
       <table className="users-table">
         <thead>
           <tr>

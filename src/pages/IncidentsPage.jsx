@@ -9,7 +9,6 @@ import { toast } from 'react-toastify';
 import { incidentService, routeService, authService } from '../services/api';
 import IncidentFilters from '../components/incidents/IncidentFilters';
 import IncidentTable from '../components/incidents/IncidentTable';
-import IncidentCard from '../components/incidents/IncidentCard';
 import IncidentDetail from '../components/incidents/IncidentDetail';
 
 const MOCK_INCIDENTS = [
@@ -252,23 +251,12 @@ export default function IncidentsPage() {
           </p>
         </div>
       ) : (
-        <>
-          {/* TABLA DE ESCRITORIO (pantallas grandes) */}
-          <IncidentTable 
-            incidents={filteredIncidents}
-            onSelect={setSelectedIncident}
-            onDelete={handleOpenDeleteModal}
-            isAdmin={isAdmin}
-          />
-
-          {/* TARJETAS DE MÓVIL (pantallas pequeñas) */}
-          <IncidentCard 
-            incidents={filteredIncidents}
-            onSelect={setSelectedIncident}
-            onDelete={handleOpenDeleteModal}
-            isAdmin={isAdmin}
-          />
-        </>
+        <IncidentTable 
+          incidents={filteredIncidents}
+          onSelect={setSelectedIncident}
+          onDelete={handleOpenDeleteModal}
+          isAdmin={isAdmin}
+        />
       )}
 
       {/* DETALLE DEL INCIDENTE */}

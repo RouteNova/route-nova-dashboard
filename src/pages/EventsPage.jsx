@@ -7,7 +7,6 @@ import {
 import { eventService, routeService } from '../services/api';
 import EventFilters from '../components/events/EventFilters';
 import EventTable from '../components/events/EventTable';
-import EventCard from '../components/events/EventCard';
 import EventDetail from '../components/events/EventDetail';
 
 const getMockEvents = () => {
@@ -227,19 +226,10 @@ export default function EventsPage() {
           </p>
         </div>
       ) : (
-        <>
-          {/* TABLA DE ESCRITORIO */}
           <EventTable 
             events={filteredEvents}
             onSelect={setSelectedEvent}
           />
-
-          {/* TARJETAS DE MÓVIL */}
-          <EventCard 
-            events={filteredEvents}
-            onSelect={setSelectedEvent}
-          />
-        </>
       )}
 
       {/* MODAL DE DETALLE DE AUDITORÍA */}
