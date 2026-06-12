@@ -1,5 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import { authService } from '../services/api';
+import { toast } from 'react-toastify';
 
 const AuthContext = createContext(null);
 
@@ -28,6 +29,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     authService.logout();
     setUser(null);
+    toast.success('Sesión cerrada con éxito.');
   };
 
   return (
