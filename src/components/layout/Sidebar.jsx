@@ -101,9 +101,7 @@ export default function Sidebar({ isOpen, onClose }) {
         <div>
           <div className="nav-group-header">ANÁLISIS</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <NavLink to="/reportes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/reports" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaChartBar />
               <span>Reportes</span>
             </NavLink>
