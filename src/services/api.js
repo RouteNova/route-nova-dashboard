@@ -139,3 +139,16 @@ export const studentService = {
 export const routeService = {
   getRoutes: () => api.get('/routes'),
 };
+
+/**
+ * Servicio de Gestión de Padres (CRUD)
+ */
+export const padreService = {
+  getPadres: (params) => api.get('/padres', { params }),
+  getPadreById: (id) => api.get(`/padres/${id}`),
+  createPadre: (padreData) => api.post('/padres', padreData),
+  updatePadre: (id, padreData) => api.put(`/padres/${id}`, padreData),
+  deletePadre: (id) => api.delete(`/padres/${id}`),
+  getPadreEstudiantes: (id) => api.get(`/padres/${id}/estudiantes`),
+  associateEstudiantes: (id, studentIds) => api.post(`/padres/${id}/estudiantes`, { studentIds }),
+};

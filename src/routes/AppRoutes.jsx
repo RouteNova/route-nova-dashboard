@@ -3,6 +3,7 @@ import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import Usuarios from '../pages/Usuarios';
 import Estudiantes from '../pages/Estudiantes';
+import Padres from '../pages/Padres';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
@@ -32,6 +33,7 @@ export default function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/usuarios" element={<Usuarios />} />
         <Route path="/estudiantes" element={<Estudiantes />} />
+        <Route path="/padres" element={<Padres />} />
       </Route>
 
       {/* Redirects and Fallbacks */}
