@@ -39,6 +39,10 @@ export default function Estudiantes() {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [qrLoading, setQrLoading] = useState(false);
 
+  // Modal de selección de Tutor/Padre
+  const [isParentSelectModalOpen, setIsParentSelectModalOpen] = useState(false);
+  const [parentSearchQuery, setParentSearchQuery] = useState('');
+
   // Formularios
   const [formValues, setFormValues] = useState({
     nombre: '',
@@ -164,11 +168,34 @@ export default function Estudiantes() {
     setFormValues({
       nombre: '',
       codigoQR: '',
-      padreId: parents.length > 0 ? parents[0]._id : '',
+      padreId: '', // start empty for custom modal selection
       rutaId: routes.length > 0 ? routes[0]._id : ''
     });
     setFormErrors({});
     setIsModalOpen(true);
+  };
+
+  const filteredParents = parents.filter(p => {
+    const term = parentSearchQuery.toLowerCase();
+    return (
+      (p.nombre && p.nombre.toLowerCase().includes(term)) ||
+      (p.correo && p.correo.toLowerCase().includes(term))
+    );
+  });
+
+  const handleSelectParent = (parent) => {
+    setFormValues(prev => ({
+      ...prev,
+      padreId: parent._id
+    }));
+    if (formErrors.padreId) {
+      setFormErrors(prev => ({
+        ...prev,
+        padreId: ''
+      }));
+    }
+    setIsParentSelectModalOpen(false);
+    setParentSearchQuery('');
   };
 
   // Abrir modal de edición
@@ -526,25 +553,32 @@ export default function Estudiantes() {
 
                 {/* Campo Padre/Tutor */}
                 <div className="input-group">
-                  <label className="input-label" htmlFor="student-padre">Tutor Familiar (Padre)</label>
-                  <select 
-                    id="student-padre"
-                    name="padreId"
-                    value={formValues.padreId}
-                    onChange={handleInputChange}
-                    className={`input-field ${formErrors.padreId ? 'error' : ''}`}
-                    required
-                  >
-                    {parents.length === 0 ? (
-                      <option value="">No hay padres registrados en el sistema</option>
-                    ) : (
-                      parents.map(parent => (
-                        <option key={parent._id} value={parent._id}>
-                          {parent.nombre} ({parent.correo})
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  <label className="input-label">Tutor Familiar (Padre)</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      type="text"
+                      readOnly
+                      value={
+                        formValues.padreId 
+                          ? (parents.find(p => p._id === formValues.padreId)?.nombre || 'Tutor seleccionado')
+                          : ''
+                      }
+                      placeholder="Haga clic en '...' para buscar tutor..."
+                      onClick={() => setIsParentSelectModalOpen(true)}
+                      className={`input-field ${formErrors.padreId ? 'error' : ''}`}
+                      style={{ flex: 1, background: 'rgba(0, 0, 0, 0.02)', cursor: 'pointer' }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsParentSelectModalOpen(true)}
+                      className="btn-secondary"
+                      style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}
+                      title="Buscar tutor familiar"
+                    >
+                      ...
+                    </button>
+                  </div>
                   {formErrors.padreId && (
                     <span className="field-error-text">{formErrors.padreId}</span>
                   )}
@@ -749,6 +783,107 @@ export default function Estudiantes() {
           </div>
         </div>
       )}
+
+      {/* MODAL SECUNDARIO DE SELECCIÓN DE TUTOR */}
+      {isParentSelectModalOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="glass-panel modal-dialog" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FaUser /> Seleccionar Tutor Familiar
+              </h3>
+              <button 
+                onClick={() => { setIsParentSelectModalOpen(false); setParentSearchQuery(''); }} 
+                className="modal-close-btn"
+                aria-label="Cerrar modal de selección"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Buscador dentro del modal */}
+              <div className="input-group" style={{ marginBottom: '16px' }}>
+                <div className="search-input-wrapper">
+                  <FaSearch className="search-input-icon" />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar tutor por nombre o correo..." 
+                    value={parentSearchQuery}
+                    onChange={(e) => setParentSearchQuery(e.target.value)}
+                    className="input-field search-input-field"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* Lista scrollable */}
+              <div style={{ 
+                maxHeight: '280px', 
+                overflowY: 'auto', 
+                border: '1px solid var(--color-border)', 
+                borderRadius: 'var(--radius-md)', 
+                background: 'var(--color-input)'
+              }}>
+                {filteredParents.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+                    No se encontraron tutores coincidentes.
+                  </div>
+                ) : (
+                  <table className="users-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--color-input)' }}>
+                        <th style={{ padding: '10px 12px', fontSize: '11px' }}>Nombre</th>
+                        <th style={{ padding: '10px 12px', fontSize: '11px' }}>Correo</th>
+                        <th style={{ padding: '10px 12px', fontSize: '11px', textAlign: 'right' }}>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredParents.map((parent) => (
+                        <tr 
+                          key={parent._id}
+                          onDoubleClick={() => handleSelectParent(parent)}
+                          style={{ cursor: 'pointer', transition: 'background 0.15s' }}
+                          title="Doble clic para seleccionar"
+                        >
+                          <td style={{ padding: '10px 12px', fontWeight: '600', fontSize: '13px' }}>
+                            {parent.nombre}
+                          </td>
+                          <td style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                            {parent.correo}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectParent(parent)}
+                              className="btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '100px' }}
+                            >
+                              Seleccionar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                onClick={() => { setIsParentSelectModalOpen(false); setParentSearchQuery(''); }}
+                className="btn-secondary"
+                style={{ fontSize: '13px', padding: '8px 16px' }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
