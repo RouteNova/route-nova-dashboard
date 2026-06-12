@@ -110,7 +110,9 @@ export const authService = {
 
   getProfile: () => {
     return api.get('/auth/profile');
-  }
+  },
+  updateProfile: (profileData) => api.put('/auth/profile', profileData),
+  changePassword: (passwordData) => api.put('/auth/change-password', passwordData)
 };
 
 /**
@@ -209,5 +211,13 @@ export const notificationService = {
   getNotifications: () => api.get('/notifications'),
   markAsRead: (id) => api.patch(`/notifications/${id}/read`),
   markAllAsRead: () => api.patch('/notifications/read-all'),
+};
+
+/**
+ * Servicio de Configuración Global y del Sistema
+ */
+export const settingsService = {
+  getSettings: () => api.get('/settings'),
+  updateSettings: (settingsData) => api.put('/settings', settingsData),
 };
 

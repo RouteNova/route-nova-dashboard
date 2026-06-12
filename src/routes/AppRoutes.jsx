@@ -12,6 +12,7 @@ import IncidentsPage from '../pages/IncidentsPage';
 import EventsPage from '../pages/EventsPage';
 import ReportsPage from '../pages/ReportsPage';
 import NotificationsPage from '../pages/NotificationsPage';
+import SettingsPage from '../pages/SettingsPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
@@ -50,6 +51,7 @@ export default function AppRoutes() {
         <Route path="/events" element={<EventsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
       {/* Redirects and Fallbacks */}
