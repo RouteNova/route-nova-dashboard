@@ -345,17 +345,33 @@ export default function LiveMonitoring() {
         </div>
       </div>
 
-      {/* Grid Principal */}
+      {/* Mapa Interactivo de Ancho Completo */}
+      <div style={{ position: 'relative', width: '100%', height: '520px' }}>
+        <MapView 
+          activeRoutes={activeRoutes}
+          selectedRoute={selectedRouteDetails}
+          onSelectRoute={handleSelectRoute}
+        />
+        
+        {/* Card Detalle Flotante */}
+        {selectedRouteDetails && (
+          <BusMarker 
+            selectedRoute={selectedRouteDetails}
+            onClose={() => { setSelectedRouteId(null); setSelectedRouteDetails(null); }}
+          />
+        )}
+      </div>
+
+      {/* Paneles de Información (Rutas e Incidencias) */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'minmax(300px, 350px) 1fr minmax(300px, 350px)', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
         gap: '20px',
-        flex: 1,
         alignItems: 'stretch'
-      }} className="live-monitoring-grid">
+      }} className="live-monitoring-info-grid">
         
-        {/* Columna Izquierda: Listado de Rutas en Curso */}
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Listado de Rutas en Curso */}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '420px' }}>
           <RouteStatus 
             activeRoutes={activeRoutes} 
             selectedRouteId={selectedRouteId} 
@@ -363,25 +379,8 @@ export default function LiveMonitoring() {
           />
         </div>
 
-        {/* Columna Central: Mapa Interactivo */}
-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', minHeight: '480px' }}>
-          <MapView 
-            activeRoutes={activeRoutes}
-            selectedRoute={selectedRouteDetails}
-            onSelectRoute={handleSelectRoute}
-          />
-          
-          {/* Card Detalle Flotante */}
-          {selectedRouteDetails && (
-            <BusMarker 
-              selectedRoute={selectedRouteDetails}
-              onClose={() => { setSelectedRouteId(null); setSelectedRouteDetails(null); }}
-            />
-          )}
-        </div>
-
-        {/* Columna Derecha: Alertas e Incidencias en Vivo */}
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Alertas e Incidencias en Vivo */}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '420px' }}>
           <IncidentPanel incidents={allIncidents} />
         </div>
       </div>
