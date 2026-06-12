@@ -137,7 +137,11 @@ export const studentService = {
  * Servicio de Gestión de Rutas
  */
 export const routeService = {
-  getRoutes: () => api.get('/routes'),
+  getRoutes: (params) => api.get('/routes', { params }),
+  getRouteById: (id) => api.get(`/routes/${id}`),
+  createRoute: (routeData) => api.post('/routes', routeData),
+  updateRoute: (id, routeData) => api.put(`/routes/${id}`, routeData),
+  deleteRoute: (id) => api.delete(`/routes/${id}`),
 };
 
 /**

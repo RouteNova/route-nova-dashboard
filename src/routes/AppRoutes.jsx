@@ -6,6 +6,7 @@ import Estudiantes from '../pages/Estudiantes';
 import Padres from '../pages/Padres';
 import Conductores from '../pages/Conductores';
 import Autobuses from '../pages/Autobuses';
+import Rutas from '../pages/Rutas';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
@@ -38,6 +39,7 @@ export default function AppRoutes() {
         <Route path="/padres" element={<Padres />} />
         <Route path="/conductores" element={<Conductores />} />
         <Route path="/autobuses" element={<Autobuses />} />
+        <Route path="/rutas" element={<Rutas />} />
       </Route>
 
       {/* Redirects and Fallbacks */}
