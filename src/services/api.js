@@ -184,3 +184,13 @@ export const autobusService = {
   deleteAutobus: (id) => api.delete(`/autobuses/${id}`),
 };
 
+/**
+ * Servicio de Gestión de Incidencias
+ */
+export const incidentService = {
+  getIncidents: (params) => api.get('/incidents', { params }),
+  getIncidentById: (id) => api.get(`/incidents/${id}`),
+  updateIncidentStatus: (id, status) => api.patch(`/incidents/${id}/status`, { status }),
+  deleteIncident: (id) => api.delete(`/incidents/${id}`),
+};
+
