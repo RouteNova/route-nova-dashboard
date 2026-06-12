@@ -7,6 +7,7 @@ import Padres from '../pages/Padres';
 import Conductores from '../pages/Conductores';
 import Autobuses from '../pages/Autobuses';
 import Rutas from '../pages/Rutas';
+import LiveMonitoring from '../pages/LiveMonitoring';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
@@ -40,6 +41,7 @@ export default function AppRoutes() {
         <Route path="/conductores" element={<Conductores />} />
         <Route path="/autobuses" element={<Autobuses />} />
         <Route path="/rutas" element={<Rutas />} />
+        <Route path="/monitoreo" element={<LiveMonitoring />} />
       </Route>
 
       {/* Redirects and Fallbacks */}

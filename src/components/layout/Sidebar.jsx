@@ -48,9 +48,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <FaChartPie />
               <span>Dashboard</span>
             </NavLink>
-            <NavLink to="/monitoreo" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/monitoreo" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaMapMarkerAlt />
               <span>Monitoreo en Vivo</span>
             </NavLink>

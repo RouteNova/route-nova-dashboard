@@ -55,14 +55,17 @@ api.interceptors.response.use(
         toast.error(serverMessage);
       }
       
-      return Promise.reject(new Error(serverMessage));
+      error.message = serverMessage;
+      return Promise.reject(error);
     } else if (error.code === 'ECONNABORTED') {
-      toast.error('Tiempo de espera de conexión agotado (Timeout) con el servidor.');
-      return Promise.reject(new Error('Límite de tiempo agotado en la solicitud.'));
+      error.message = 'Tiempo de espera de conexión agotado (Timeout) con el servidor.';
+      toast.error(error.message);
+      return Promise.reject(error);
     }
     
+    error.message = error.message || 'Error de conexión con el servidor.';
     toast.error('Error de red: No se pudo conectar con el servidor de la API.');
-    return Promise.reject(new Error(error.message || 'Error de conexión con el servidor.'));
+    return Promise.reject(error);
   }
 );
 
@@ -142,6 +145,8 @@ export const routeService = {
   createRoute: (routeData) => api.post('/routes', routeData),
   updateRoute: (id, routeData) => api.put(`/routes/${id}`, routeData),
   deleteRoute: (id) => api.delete(`/routes/${id}`),
+  getActiveRoutesMonitoring: () => api.get('/routes/active/monitoring'),
+  getRouteMonitoring: (id) => api.get(`/routes/${id}/monitoring`),
 };
 
 /**
