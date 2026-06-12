@@ -19,9 +19,14 @@ export const AuthProvider = ({ children }) => {
         const profile = await authService.getProfile();
         setUser(profile);
       } catch (error) {
-        // Si el token es inválido o expiró, se limpia la sesión
-        authService.logout();
-        setUser(null);
+        const status = error.response?.status;
+        // Solo desloguear si es un error de credenciales explícito (401 o 403)
+        if (status === 401 || status === 403) {
+          authService.logout();
+          setUser(null);
+        } else {
+          console.warn('No se pudo verificar la sesión con el servidor (error temporal o límite de peticiones):', error.message);
+        }
       } finally {
         setLoading(false);
       }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FaSearch, 
   FaRoute, 
@@ -15,6 +15,11 @@ import {
 } from 'react-icons/fa';
 import { routeService, conductorService, autobusService } from '../services/api';
 import { toast } from 'react-toastify';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiZnJhbmNpc2NvMDgyIiwiYSI6ImNtcWI0eXJkMDBkZm0yc3F5bGNkMDdudW8ifQ.hUD-NrHEMSqRfWiNmJs6hA';
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 export default function Rutas() {
   const [routes, setRoutes] = useState([]);
@@ -54,6 +59,143 @@ export default function Rutas() {
   
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Referencias para el visor de mapas interactivo de Mapbox en el modal
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const routeMarkersRef = useRef([]);
+
+  // Inicializar y controlar el mapa dentro del modal de creación/edición
+  useEffect(() => {
+    if (!isModalOpen || !mapContainerRef.current) return;
+
+    // Inicializar mapa
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/streets-v12', // Estilo de calles para trazar la ruta con precisión
+      center: [-69.931, 18.486], // Centro por defecto (Santo Domingo)
+      zoom: 12,
+      attributionControl: false
+    });
+
+    mapInstanceRef.current = map;
+
+    // Si ya existen puntos cargados (en caso de edición), centrar la cámara del mapa
+    if (formValues.puntosRuta && formValues.puntosRuta.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds();
+      formValues.puntosRuta.forEach(pt => {
+        bounds.extend([parseFloat(pt.longitud), parseFloat(pt.latitud)]);
+      });
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.fitBounds(bounds, { padding: 40, maxZoom: 15, duration: 1000 });
+        }
+      }, 200);
+    }
+
+    // Agregar manejador de click para añadir puntos de control GPS
+    map.on('click', (e) => {
+      const { lng, lat } = e.lngLat;
+      const newPoint = { latitud: parseFloat(lat.toFixed(6)), longitud: parseFloat(lng.toFixed(6)) };
+      
+      setFormValues(prev => ({
+        ...prev,
+        puntosRuta: [...prev.puntosRuta, newPoint]
+      }));
+    });
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [isModalOpen]);
+
+  // Actualizar la polilínea y los marcadores del mapa cuando cambien los puntos de ruta en el estado
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const runMapUpdates = () => {
+      // 1. Eliminar marcadores anteriores
+      routeMarkersRef.current.forEach(m => m.remove());
+      routeMarkersRef.current = [];
+
+      const pathCoords = formValues.puntosRuta.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+      const sourceId = 'form-route-source';
+      const layerId = 'form-route-layer';
+
+      // 2. Dibujar o actualizar línea del trayecto
+      if (pathCoords.length > 0) {
+        const geojson = {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: pathCoords
+          }
+        };
+
+        if (map.getSource(sourceId)) {
+          map.getSource(sourceId).setData(geojson);
+        } else {
+          map.addSource(sourceId, {
+            type: 'geojson',
+            data: geojson
+          });
+          map.addLayer({
+            id: layerId,
+            type: 'line',
+            source: sourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#2563EB', // Azul
+              'line-width': 4,
+              'line-opacity': 0.8
+            }
+          });
+        }
+
+        // 3. Agregar marcadores numerados con colores interactivos
+        formValues.puntosRuta.forEach((pt, idx) => {
+          const el = document.createElement('div');
+          el.style.width = '20px';
+          el.style.height = '20px';
+          el.style.borderRadius = '50%';
+          el.style.background = idx === 0 ? '#22C55E' : idx === formValues.puntosRuta.length - 1 ? '#EF4444' : '#F59E0B';
+          el.style.border = '2px solid white';
+          el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.35)';
+          el.style.color = 'white';
+          el.style.fontSize = '9px';
+          el.style.fontWeight = '800';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.cursor = 'pointer';
+          el.innerHTML = (idx + 1).toString();
+
+          const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([parseFloat(pt.longitud), parseFloat(pt.latitud)])
+            .addTo(map);
+
+          routeMarkersRef.current.push(marker);
+        });
+      } else {
+        // Remover capa si la lista se vacía
+        if (map.getLayer(layerId)) map.removeLayer(layerId);
+        if (map.getSource(sourceId)) map.removeSource(sourceId);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      runMapUpdates();
+    } else {
+      map.once('style.load', runMapUpdates);
+    }
+  }, [formValues.puntosRuta]);
 
   // Cargar rutas con debounce para búsqueda
   useEffect(() => {
@@ -658,26 +800,54 @@ export default function Rutas() {
 
                 {/* Constructor de Puntos de Control (puntosRuta) */}
                 <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <FaMapMarkerAlt style={{ color: 'var(--color-primary)' }} /> Puntos de Control GPS (Trayecto de Ruta)
-                  </h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                      <FaMapMarkerAlt style={{ color: 'var(--color-primary)' }} /> Trazado de Trayecto (Mapa Interactivo)
+                    </h4>
+                    {formValues.puntosRuta.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setFormValues(prev => ({ ...prev, puntosRuta: [] }))}
+                        className="btn-secondary"
+                        style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+                      >
+                        Limpiar Puntos
+                      </button>
+                    )}
+                  </div>
+                  
+                  <p style={{ color: 'var(--color-text-secondary)', fontSize: '11px', margin: 0 }}>
+                    💡 <b>Haz clic en el mapa</b> para trazar la ruta punto a punto de forma secuencial.
+                  </p>
+
+                  {/* Contenedor del Mapa Mapbox */}
+                  <div 
+                    ref={mapContainerRef} 
+                    style={{ 
+                      width: '100%', 
+                      height: '240px', 
+                      borderRadius: 'var(--radius-md)', 
+                      border: '1px solid var(--color-border)',
+                      overflow: 'hidden'
+                    }}
+                  />
                   
                   {/* Lista de Puntos actuales */}
-                  <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0, 0, 0, 0.02)', padding: '6px', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0, 0, 0, 0.02)', padding: '6px', borderRadius: 'var(--radius-md)' }}>
                     {formValues.puntosRuta.length === 0 ? (
-                      <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', padding: '6px', fontStyle: 'italic' }}>
-                        No hay puntos de control configurados en este trayecto.
+                      <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', padding: '6px', fontStyle: 'italic' }}>
+                        Usa el mapa de arriba para añadir paradas y puntos de control al trayecto.
                       </span>
                     ) : (
                       formValues.puntosRuta.map((pt, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-card)', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                          <span style={{ fontSize: '12px', color: 'var(--color-text)', fontWeight: '600' }}>
-                            Punto {idx + 1}: Lat: {pt.latitud}, Lng: {pt.longitud}
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-card)', padding: '4px 10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text)', fontWeight: '600' }}>
+                            {idx === 0 ? '🏁 Inicio' : idx === formValues.puntosRuta.length - 1 ? '🏫 Escuela' : `📍 Punto ${idx + 1}`}: Lat: {pt.latitud}, Lng: {pt.longitud}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleRemovePoint(idx)}
-                            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
                             title="Eliminar punto"
                           >
                             <FaTimes />
@@ -687,35 +857,35 @@ export default function Rutas() {
                     )}
                   </div>
 
-                  {/* Formulario rápido para añadir punto */}
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                  {/* Formulario rápido para añadir punto manualmente como alternativa */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', borderTop: '1px dashed var(--color-border)', paddingTop: '10px' }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Latitud</label>
+                      <label style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Latitud Manual</label>
                       <input 
                         type="text" 
-                        placeholder="-33.456" 
+                        placeholder="Ej. 18.486" 
                         value={tempLat} 
                         onChange={(e) => setTempLat(e.target.value)} 
                         className="input-field" 
-                        style={{ padding: '8px 10px', fontSize: '12px' }}
+                        style={{ padding: '6px 8px', fontSize: '11px', height: '32px' }}
                       />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Longitud</label>
+                      <label style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Longitud Manual</label>
                       <input 
                         type="text" 
-                        placeholder="-70.648" 
+                        placeholder="Ej. -69.931" 
                         value={tempLng} 
                         onChange={(e) => setTempLng(e.target.value)} 
                         className="input-field" 
-                        style={{ padding: '8px 10px', fontSize: '12px' }}
+                        style={{ padding: '6px 8px', fontSize: '11px', height: '32px' }}
                       />
                     </div>
                     <button
                       type="button"
                       onClick={handleAddPoint}
                       className="btn-secondary"
-                      style={{ padding: '8px 12px', height: '37px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '12px' }}
+                      style={{ padding: '6px 12px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '11px' }}
                     >
                       <FaPlus /> Añadir
                     </button>
