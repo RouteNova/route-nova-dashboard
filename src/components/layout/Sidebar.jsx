@@ -69,15 +69,11 @@ export default function Sidebar({ isOpen, onClose }) {
               <FaUsers />
               <span>Padres/Tutores</span>
             </NavLink>
-            <NavLink to="/conductores" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/conductores" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaUserTie />
               <span>Conductores</span>
             </NavLink>
-            <NavLink to="/autobuses" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/autobuses" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaBus />
               <span>Autobuses</span>
             </NavLink>

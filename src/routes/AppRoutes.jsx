@@ -4,6 +4,8 @@ import Dashboard from '../pages/Dashboard';
 import Usuarios from '../pages/Usuarios';
 import Estudiantes from '../pages/Estudiantes';
 import Padres from '../pages/Padres';
+import Conductores from '../pages/Conductores';
+import Autobuses from '../pages/Autobuses';
 import NotFoundPage from '../pages/NotFoundPage';
 import MainLayout from '../layouts/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
@@ -34,6 +36,8 @@ export default function AppRoutes() {
         <Route path="/usuarios" element={<Usuarios />} />
         <Route path="/estudiantes" element={<Estudiantes />} />
         <Route path="/padres" element={<Padres />} />
+        <Route path="/conductores" element={<Conductores />} />
+        <Route path="/autobuses" element={<Autobuses />} />
       </Route>
 
       {/* Redirects and Fallbacks */}
