@@ -92,9 +92,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <FaClipboardList />
               <span>Eventos de Ruta</span>
             </NavLink>
-            <NavLink to="/incidencias" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/incidents" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaExclamationTriangle />
               <span>Incidencias</span>
             </NavLink>
