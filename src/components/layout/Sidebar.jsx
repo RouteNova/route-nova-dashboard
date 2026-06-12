@@ -77,9 +77,7 @@ export default function Sidebar({ isOpen, onClose }) {
               <FaBus />
               <span>Autobuses</span>
             </NavLink>
-            <NavLink to="/rutas" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-              onClick={(e) => { e.preventDefault(); }}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            <NavLink to="/rutas" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
               <FaRoute />
               <span>Rutas</span>
             </NavLink>
