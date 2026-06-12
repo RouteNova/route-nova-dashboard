@@ -22,7 +22,7 @@ export default function AppRoutes() {
       {/* Protected Routes (nested inside MainLayout) */}
       <Route
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['administrador']}>
             <MainLayout />
           </ProtectedRoute>
         }
