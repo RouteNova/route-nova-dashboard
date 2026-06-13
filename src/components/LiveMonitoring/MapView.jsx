@@ -125,8 +125,6 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         busModelUrl,
         (gltf) => {
           this.busModel = gltf.scene;
-          this.busModel.scale.set(10, 10, 10);
-          this.busModel.visible = is3DActiveRef.current;
           this.scene.add(this.busModel);
           console.log('3D Bus model loaded successfully in dashboard MapView');
           mapInstance.triggerRepaint();
@@ -187,7 +185,6 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
       );
 
       const modelRotate = [Math.PI / 2, 0, 0];
-      const rad = (this.currentModelHeading * Math.PI) / 180;
 
       const modelTransform = {
         translateX: modelAsMercatorCoordinate.x,
@@ -195,9 +192,15 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         translateZ: modelAsMercatorCoordinate.z,
         rotateX: modelRotate[0],
         rotateY: modelRotate[1],
-        rotateZ: -rad,
+        rotateZ: modelRotate[2],
         scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
       };
+
+      if (this.busModel) {
+        const scale = modelTransform.scale * 3;
+        this.busModel.scale.set(scale, scale, scale);
+        this.busModel.rotation.y = THREE.MathUtils.degToRad(-this.currentModelHeading);
+      }
 
       const rotationX = new THREE.Matrix4().makeRotationAxis(
         new THREE.Vector3(1, 0, 0),
@@ -221,9 +224,9 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         )
         .scale(
           new THREE.Vector3(
-            modelTransform.scale,
-            -modelTransform.scale,
-            modelTransform.scale
+            1,
+            -1,
+            1
           )
         )
         .multiply(rotationX)
@@ -280,7 +283,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
             try {
               cameraCenter = turf.destination(
                 turf.point(currentPoint),
-                0.03, // 30 metros adelante
+                0.05, // 50 metros adelante
                 heading,
                 { units: 'kilometers' }
               ).geometry.coordinates;
@@ -288,10 +291,10 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
               console.error(err);
             }
             map.easeTo({
-              pitch: 60,
+              pitch: 65,
               bearing: heading,
               center: cameraCenter,
-              zoom: 17,
+              zoom: 18,
               duration: 1000
             });
           }
@@ -419,6 +422,12 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
 
       if (!map.getLayer('3d-model')) {
         map.addLayer(customLayerRef.current);
+        map.on('rotate', () => {
+          const layer = customLayerRef.current;
+          if (layer && layer.busModel) {
+            layer.busModel.rotation.y = THREE.MathUtils.degToRad(-map.getBearing());
+          }
+        });
       }
 
       // --- TRANSICIONES Y ACTUALIZACIÓN DE AUTOBUSES ---
@@ -637,22 +646,58 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
           const selectedLat = parseFloat(selectedActive.ultimaUbicacion.latitud);
           const currentPoint = [selectedLng, selectedLat];
 
-          // 1. Calcular rumbo dinámico
+          // 1. Calcular rumbo dinámico con filtro de ruido de GPS
           const prevPoint = lastSelectedRouteCoordsRef.current;
           let heading = lastSelectedRouteHeadingRef.current || 0;
+          let displacementHeading = heading;
           if (prevPoint && (prevPoint[0] !== selectedLng || prevPoint[1] !== selectedLat)) {
             try {
               const p1 = turf.point(prevPoint);
               const p2 = turf.point(currentPoint);
-              let calculatedBearing = turf.bearing(p1, p2);
-              if (calculatedBearing < 0) {
-                calculatedBearing += 360;
+              const distanceMoved = turf.distance(p1, p2, { units: 'kilometers' }) * 1000;
+              if (distanceMoved > 2) {
+                let calculatedBearing = turf.bearing(p1, p2);
+                if (calculatedBearing < 0) {
+                  calculatedBearing += 360;
+                }
+                displacementHeading = calculatedBearing;
               }
-              heading = calculatedBearing;
             } catch (e) {
               console.error('Error calculating heading:', e);
             }
           }
+
+          // Preferir la dirección de la calle/ruta para mantener el bus orientado en el sentido de la vía (un poco de preferencia, blend = 0.35)
+          let finalHeading = displacementHeading;
+          const officialCoords = streetMatchedCoords.length > 0 ? streetMatchedCoords : (rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]));
+          if (officialCoords.length >= 2) {
+            try {
+              const snapped = turf.nearestPointOnLine(turf.lineString(officialCoords), turf.point(currentPoint));
+              const index = snapped.properties.index;
+              if (index !== undefined && index < officialCoords.length - 1) {
+                const p1 = turf.point(officialCoords[index]);
+                const p2 = turf.point(officialCoords[index + 1]);
+                let routeSegmentHeading = turf.bearing(p1, p2);
+                if (routeSegmentHeading < 0) {
+                  routeSegmentHeading += 360;
+                }
+
+                const distanceMeters = turf.pointToLineDistance(turf.point(currentPoint), turf.lineString(officialCoords), { units: 'meters' });
+                if (distanceMeters <= 50) {
+                  // Blend: preferir 35% la dirección de la ruta y 65% la dirección del desplazamiento
+                  let diff = routeSegmentHeading - displacementHeading;
+                  diff = ((diff + 180) % 360) - 180;
+                  if (Math.abs(diff) <= 90) {
+                    finalHeading = displacementHeading + diff * 0.35;
+                  }
+                }
+              }
+            } catch (e) {
+              console.error('Error matching heading to route segment in MapView:', e);
+            }
+          }
+
+          heading = finalHeading;
           lastSelectedRouteCoordsRef.current = currentPoint;
           lastSelectedRouteHeadingRef.current = heading;
 
@@ -674,7 +719,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
             try {
               cameraCenter = turf.destination(
                 turf.point(currentPoint),
-                0.03, // 30 metros adelante
+                0.05, // 50 metros adelante
                 heading,
                 { units: 'kilometers' }
               ).geometry.coordinates;
@@ -684,14 +729,13 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
             map.easeTo({
               center: cameraCenter,
               bearing: heading,
-              pitch: 60,
-              zoom: 17,
-              duration: 1000
+              pitch: 65,
+              zoom: 18,
+              duration: 2500
             });
           }
 
           // 4. Evaluar desviación del camino vial oficial
-          const officialCoords = streetMatchedCoords.length > 0 ? streetMatchedCoords : pathCoords;
           if (officialCoords.length >= 2) {
             try {
               const currentPt = turf.point(currentPoint);
