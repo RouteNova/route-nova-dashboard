@@ -199,7 +199,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
       if (this.busModel) {
         const scale = modelTransform.scale * 3;
         this.busModel.scale.set(scale, scale, scale);
-        this.busModel.rotation.y = THREE.MathUtils.degToRad(-this.currentModelHeading);
+        this.busModel.rotation.y = THREE.MathUtils.degToRad(-this.currentModelHeading) + Math.PI;
       }
 
       const rotationX = new THREE.Matrix4().makeRotationAxis(
@@ -425,7 +425,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         map.on('rotate', () => {
           const layer = customLayerRef.current;
           if (layer && layer.busModel) {
-            layer.busModel.rotation.y = THREE.MathUtils.degToRad(-map.getBearing());
+            layer.busModel.rotation.y = THREE.MathUtils.degToRad(-map.getBearing()) + Math.PI;
           }
         });
       }
