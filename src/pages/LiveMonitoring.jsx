@@ -56,6 +56,62 @@ export default function LiveMonitoring() {
     }
   };
 
+  const triggerRouteStart = async (routeId) => {
+    const exists = activeRoutesRef.current.some(r => r.route?.id === routeId);
+    if (exists) return;
+
+    try {
+      const details = await routeService.getRouteMonitoring(routeId);
+      if (!details) return;
+
+      const newRouteData = {
+        ...details,
+        incidenciasActivasContador: details.incidenciasActivasContador ?? (details.incidenciasActivas?.length || 0)
+      };
+
+      setActiveRoutes(prev => {
+        if (prev.some(r => r.route?.id === routeId)) return prev;
+        return [...prev, newRouteData];
+      });
+
+      if (socketRef.current && !activeRouteIdsRef.current.has(routeId)) {
+        socketRef.current.emit('join_route', { routeId }, (res) => {
+          if (res && res.status === 'ok') {
+            activeRouteIdsRef.current.add(routeId);
+            console.log(`Unido reactivamente a la sala de la nueva ruta activa: ${routeId}`);
+          }
+        });
+      }
+
+      toast.info(`🚀 La ruta "${details.route?.nombre || routeId}" ha iniciado.`);
+    } catch (err) {
+      console.error('Error triggered on route start:', err);
+    }
+  };
+
+  const triggerRouteFinish = (routeId) => {
+    setActiveRoutes(prev => prev.filter(r => r.route?.id !== routeId));
+
+    if (socketRef.current && activeRouteIdsRef.current.has(routeId)) {
+      socketRef.current.emit('leave_route', { routeId }, (res) => {
+        if (res && res.status === 'ok') {
+          activeRouteIdsRef.current.delete(routeId);
+          console.log(`Salido reactivamente de la sala de la ruta finalizada: ${routeId}`);
+        }
+      });
+    }
+
+    setSelectedRouteId(currentId => {
+      if (currentId === routeId) {
+        setSelectedRouteDetails(null);
+        return null;
+      }
+      return currentId;
+    });
+
+    toast.success(`🏁 Una ruta activa ha finalizado.`);
+  };
+
   // 2. Establecer la conexión WebSocket ÚNICA al montar el componente
   useEffect(() => {
     // Obtener token de sesión
@@ -243,6 +299,28 @@ export default function LiveMonitoring() {
         }
         return currentSelectedId;
       });
+    });
+
+    socket.on('route_started', (data) => {
+      const { routeId } = data;
+      console.log('Socket: route_started para', routeId);
+      triggerRouteStart(routeId);
+    });
+
+    socket.on('route_finished', (data) => {
+      const { routeId } = data;
+      console.log('Socket: route_finished para', routeId);
+      triggerRouteFinish(routeId);
+    });
+
+    socket.on('route_status_changed', (data) => {
+      const { routeId, estado } = data;
+      console.log(`Socket: route_status_changed para ${routeId} -> ${estado}`);
+      if (estado === 'en_curso') {
+        triggerRouteStart(routeId);
+      } else {
+        triggerRouteFinish(routeId);
+      }
     });
 
     return () => {
