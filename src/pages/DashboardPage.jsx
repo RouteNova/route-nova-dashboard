@@ -24,34 +24,32 @@ import {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [usingMocks, setUsingMocks] = useState(false);
-
   // Totales
-  const [totalStudents, setTotalStudents] = useState(450);
-  const [totalBuses, setTotalBuses] = useState(15);
-  const [activeRoutesCount, setActiveRoutesCount] = useState(12);
-  const [incidentsCount, setIncidentsCount] = useState(3);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalBuses, setTotalBuses] = useState(0);
+  const [activeRoutesCount, setActiveRoutesCount] = useState(0);
+  const [incidentsCount, setIncidentsCount] = useState(0);
 
   // Estudiantes Hoy
-  const [transportedToday, setTransportedToday] = useState(380);
-  const [pendingToday, setPendingToday] = useState(70);
+  const [transportedToday, setTransportedToday] = useState(0);
+  const [pendingToday, setPendingToday] = useState(0);
 
   // Rutas en Curso
   const [activeRoutesList, setActiveRoutesList] = useState([]);
 
   // Incidencias actuales por gravedad
   const [incidentSeverityStats, setIncidentSeverityStats] = useState({
-    critical: 1,
-    high: 2,
-    medium: 5
+    critical: 0,
+    high: 0,
+    medium: 0
   });
 
   // Indicadores operativos
   const [indicators, setIndicators] = useState({
-    complianceRate: 95,
-    avgDuration: 45,
-    avgDelay: 8,
-    incidentRate: 2.5
+    complianceRate: 0,
+    avgDuration: 0,
+    avgDelay: 0,
+    incidentRate: 0
   });
 
   // Gráficos
@@ -94,118 +92,110 @@ export default function DashboardPage() {
       const eventsList = Array.isArray(eventsRes) ? eventsRes : [];
 
       // 1. Totales generales
-      setTotalStudents(studentsList.length || 450);
-      setTotalBuses(busesList.length || 15);
+      setTotalStudents(studentsList.length);
+      setTotalBuses(busesList.length);
       
       const inCourse = routesList.filter(r => r.estado === 'en_curso');
-      setActiveRoutesCount(routesList.filter(r => r.estado === 'en_curso').length || 12);
+      setActiveRoutesCount(inCourse.length);
       
       const activeIncidents = incidentsList.filter(i => i.status !== 'resolved' && i.status !== 'closed');
-      setIncidentsCount(activeIncidents.length || 3);
+      setIncidentsCount(activeIncidents.length);
 
       // 2. Rutas activas lista
-      if (inCourse.length > 0) {
-        // Mapear con datos reales
-        const mappedActive = inCourse.map(r => ({
-          id: r._id || r.id,
-          nombre: r.nombre,
-          studentsCount: studentsList.filter(s => String(s.rutaId) === String(r._id || r.id)).length || 20
-        }));
-        setActiveRoutesList(mappedActive);
-      } else {
-        // Fallback realista de demostración
-        setActiveRoutesList([
-          { id: 'route1', nombre: 'Ruta Colegio Norte', studentsCount: 25 },
-          { id: 'route2', nombre: 'Ruta Colegio Sur', studentsCount: 32 }
-        ]);
-      }
+      const mappedActive = inCourse.map(r => ({
+        id: r._id || r.id,
+        nombre: r.nombre,
+        studentsCount: studentsList.filter(s => String(s.rutaId) === String(r._id || r.id)).length
+      }));
+      setActiveRoutesList(mappedActive);
 
       // 3. Estudiantes hoy (Transportados vs Pendientes)
       const today = new Date().toISOString().slice(0, 10);
       const boardedTodayCount = eventsList.filter(e => e.type === 'student_boarded' && e.createdAt?.slice(0, 10) === today).length;
-      if (boardedTodayCount > 0) {
-        setTransportedToday(boardedTodayCount);
-        setPendingToday(Math.max(0, studentsList.length - boardedTodayCount));
-      } else {
-        // Fallback
-        setTransportedToday(380);
-        setPendingToday(70);
-      }
+      setTransportedToday(boardedTodayCount);
+      setPendingToday(Math.max(0, studentsList.length - boardedTodayCount));
 
       // 4. Gravedad de incidencias
       const critical = activeIncidents.filter(i => i.severity === 'critical').length;
       const high = activeIncidents.filter(i => i.severity === 'high').length;
       const medium = activeIncidents.filter(i => i.severity === 'medium').length;
-      if (critical > 0 || high > 0 || medium > 0) {
-        setIncidentSeverityStats({ critical, high: high + critical, medium: medium || 5 });
-      } else {
-        setIncidentSeverityStats({ critical: 1, high: 2, medium: 5 });
-      }
+      setIncidentSeverityStats({ critical, high, medium });
 
       // 5. Bitácora Reciente
-      if (eventsList.length > 0) {
-        setRecentEvents(eventsList);
-      } else {
-        // Fallback
-        setRecentEvents([
-          { type: 'student_boarded', description: 'Ana Pérez abordó el transporte escolar.', createdAt: new Date(Date.now() - 300000).toISOString(), route: { nombre: 'Ruta Colegio Norte' } },
-          { type: 'route_started', description: 'El conductor Carlos López inició el recorrido.', createdAt: new Date(Date.now() - 600000).toISOString(), route: { nombre: 'Ruta Colegio Norte' } },
-          { type: 'route_deviated', description: 'Desvío detectado: BUS-02 fuera de ruta por 250m.', createdAt: new Date(Date.now() - 900000).toISOString(), route: { nombre: 'Ruta Colegio Centro' } }
-        ]);
-      }
+      setRecentEvents(eventsList);
 
       // 6. Indicadores operativos basados en historial de base de datos
       if (historyList.length > 0) {
         const totalCompleted = historyList.length;
         const totalDuration = historyList.reduce((acc, h) => acc + (h.tiempos?.duracionMinutos || 0), 0);
-        const avgDur = Math.round(totalDuration / totalCompleted) || 45;
+        const avgDur = Math.round(totalDuration / totalCompleted) || 0;
 
         const totalInc = historyList.reduce((acc, h) => acc + (h.incidenciasContador || 0), 0);
-        const incRate = parseFloat(((totalInc / totalCompleted) * 10).toFixed(1)) || 2.5; // Tasa promedio
+        const incRate = parseFloat(((totalInc / totalCompleted) * 10).toFixed(1)) || 0;
 
         setIndicators({
-          complianceRate: 95, // Supuesto de cumplimiento operativo alto
+          complianceRate: 100,
           avgDuration: avgDur,
-          avgDelay: 8,
+          avgDelay: 0,
           incidentRate: incRate
         });
       } else {
         setIndicators({
-          complianceRate: 95,
-          avgDuration: 45,
-          avgDelay: 8,
-          incidentRate: 2.5
+          complianceRate: 0,
+          avgDuration: 0,
+          avgDelay: 0,
+          incidentRate: 0
         });
       }
 
       // 7. Configurar Gráficos
       setupChartsData(eventsList, incidentsList, routesList, historyList);
-      setUsingMocks(studentsList.length === 0);
 
     } catch (err) {
       console.error('Error cargando panel analítico:', err);
-      setUsingMocks(true);
-      triggerFallbackData();
+      setTotalStudents(0);
+      setTotalBuses(0);
+      setActiveRoutesCount(0);
+      setIncidentsCount(0);
+      setTransportedToday(0);
+      setPendingToday(0);
+      setActiveRoutesList([]);
+      setRecentEvents([]);
+      setIncidentSeverityStats({ critical: 0, high: 0, medium: 0 });
+      setIndicators({ complianceRate: 0, avgDuration: 0, avgDelay: 0, incidentRate: 0 });
+      setupChartsData([], [], [], []);
     } finally {
       setLoading(false);
     }
   };
 
   const setupChartsData = (events, incidents, routes, history) => {
-    // 1. Gráfico 1: Transporte Diario
+    // 1. Gráfico 1: Transporte Diario real a partir de eventos
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const counts = { 'Lun': 0, 'Mar': 0, 'Mié': 0, 'Jue': 0, 'Vie': 0 };
+    events.forEach(e => {
+      if (e.type === 'student_boarded' && e.createdAt) {
+        const d = new Date(e.createdAt).getDay();
+        const name = days[d];
+        if (name in counts) {
+          counts[name]++;
+        }
+      }
+    });
+
     setDailyTransport([
-      { name: 'Lun', Estudiantes: 360 },
-      { name: 'Mar', Estudiantes: 390 },
-      { name: 'Mié', Estudiantes: 380 },
-      { name: 'Jue', Estudiantes: 410 },
-      { name: 'Vie', Estudiantes: 395 }
+      { name: 'Lun', Estudiantes: counts['Lun'] },
+      { name: 'Mar', Estudiantes: counts['Mar'] },
+      { name: 'Mié', Estudiantes: counts['Mié'] },
+      { name: 'Jue', Estudiantes: counts['Jue'] },
+      { name: 'Vie', Estudiantes: counts['Vie'] }
     ]);
 
     // 2. Gráfico 2: Incidencias por Tipo
-    const delayCount = incidents.filter(i => i.type === 'delay').length || 12;
-    const breakdownCount = incidents.filter(i => i.type === 'vehicle_breakdown').length || 3;
-    const deviationCount = incidents.filter(i => i.type === 'route_deviation' || i.type === 'route_deviated').length || 5;
-    const otherCount = incidents.filter(i => i.type === 'other').length || 2;
+    const delayCount = incidents.filter(i => i.type === 'delay').length;
+    const breakdownCount = incidents.filter(i => i.type === 'vehicle_breakdown').length;
+    const deviationCount = incidents.filter(i => i.type === 'route_deviation' || i.type === 'route_deviated').length;
+    const otherCount = incidents.filter(i => i.type === 'other').length;
 
     setIncidentsByType([
       { name: 'Retrasos', Cantidad: delayCount, color: '#FBBF24' },
@@ -215,39 +205,16 @@ export default function DashboardPage() {
     ]);
 
     // 3. Gráfico 3: Estado de Rutas (Circular)
-    const completed = history.length || 82;
-    const active = routes.filter(r => r.estado === 'en_curso').length || 12;
-    const scheduled = routes.filter(r => r.estado === 'programada').length || 16;
+    const completed = history.length;
+    const active = routes.filter(r => r.estado === 'en_curso').length;
+    const scheduled = routes.filter(r => r.estado === 'programada').length;
     const total = completed + active + scheduled;
 
     setRouteStatus([
-      { name: 'Completadas', value: completed, percentage: Math.round((completed / total) * 100) || 75 },
-      { name: 'En curso', value: active, percentage: Math.round((active / total) * 100) || 11 },
-      { name: 'Programadas', value: scheduled, percentage: Math.round((scheduled / total) * 100) || 14 }
+      { name: 'Completadas', value: completed, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 },
+      { name: 'En curso', value: active, percentage: total > 0 ? Math.round((active / total) * 100) : 0 },
+      { name: 'Programadas', value: scheduled, percentage: total > 0 ? Math.round((scheduled / total) * 100) : 0 }
     ]);
-  };
-
-  const triggerFallbackData = () => {
-    setTotalStudents(450);
-    setTotalBuses(15);
-    setActiveRoutesCount(12);
-    setIncidentsCount(3);
-
-    setTransportedToday(380);
-    setPendingToday(70);
-
-    setActiveRoutesList([
-      { id: 'route1', nombre: 'Ruta Colegio Norte', studentsCount: 25 },
-      { id: 'route2', nombre: 'Ruta Colegio Sur', studentsCount: 32 }
-    ]);
-
-    setRecentEvents([
-      { type: 'student_boarded', description: 'Ana Pérez abordó el transporte escolar.', createdAt: new Date(Date.now() - 300000).toISOString(), route: { nombre: 'Ruta Colegio Norte' } },
-      { type: 'route_started', description: 'El conductor Carlos López inició el recorrido.', createdAt: new Date(Date.now() - 600000).toISOString(), route: { nombre: 'Ruta Colegio Norte' } },
-      { type: 'route_deviated', description: 'Desvío detectado: BUS-02 fuera de ruta por 250m.', createdAt: new Date(Date.now() - 900000).toISOString(), route: { nombre: 'Ruta Colegio Centro' } }
-    ]);
-
-    setupChartsData([], [], [], []);
   };
 
   return (
@@ -260,22 +227,6 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {usingMocks && (
-        <div style={{ 
-          background: 'rgba(59, 130, 246, 0.08)', 
-          border: '1px solid rgba(59, 130, 246, 0.2)', 
-          padding: '10px 16px', 
-          borderRadius: 'var(--radius-md)', 
-          fontSize: '13px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px', 
-          color: '#60A5FA', 
-          marginBottom: '20px' 
-        }}>
-          💡 <b>Visualización Simulada</b>: Base de datos inicializada sin registros. Cargando bitácora y analíticas de demostración del sistema.
-        </div>
-      )}
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>

@@ -11,49 +11,8 @@ import IncidentFilters from '../components/incidents/IncidentFilters';
 import IncidentTable from '../components/incidents/IncidentTable';
 import IncidentDetail from '../components/incidents/IncidentDetail';
 
-const MOCK_INCIDENTS = [
-  {
-    _id: "mockinc0001",
-    title: "Tránsito detenido por accidente",
-    description: "Tránsito completamente detenido en el kilómetro 12 debido a una colisión. Se estima un retraso de 25 minutos.",
-    type: "delay",
-    severity: "medium",
-    status: "open",
-    createdAt: new Date().toISOString(),
-    route: { _id: "route1", nombre: "Ruta Colegio Norte", autobusId: { patente: "BUS-05", modelo: "Mercedes Sprinter" } },
-    driver: { usuarioId: { nombre: "Carlos López", correo: "carlos.lopez@routenova.com" }, telefono: "+1 809-555-0123" },
-    location: { latitude: 18.486, longitude: -69.931 }
-  },
-  {
-    _id: "mockinc0002",
-    title: "Falla mecánica en alternador",
-    description: "Batería baja e indicador encendido en el tablero. Vehículo a un costado del camino esperando grúa de reemplazo.",
-    type: "vehicle_breakdown",
-    severity: "critical",
-    status: "in_progress",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    route: { _id: "route2", nombre: "Ruta Colegio Sur", autobusId: { patente: "BUS-09", modelo: "Hyundai County" } },
-    driver: { usuarioId: { nombre: "Juan Pérez", correo: "juan.perez@routenova.com" }, telefono: "+1 809-555-0199" },
-    location: { latitude: 18.462, longitude: -69.954 }
-  },
-  {
-    _id: "mockinc0003",
-    title: "Rutas alternas por fuerte lluvia",
-    description: "Calles del sector bajo inundadas. El chofer desvía el trayecto por vías secundarias autorizadas.",
-    type: "weather_condition",
-    severity: "low",
-    status: "resolved",
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-    route: { _id: "route1", nombre: "Ruta Colegio Norte", autobusId: { patente: "BUS-05", modelo: "Mercedes Sprinter" } },
-    driver: { usuarioId: { nombre: "Carlos López", correo: "carlos.lopez@routenova.com" }, telefono: "+1 809-555-0123" },
-    location: { latitude: 18.471, longitude: -69.912 }
-  }
-];
-
 export default function IncidentsPage() {
   const [dbIncidents, setDbIncidents] = useState([]);
-  const [localMockIncidents, setLocalMockIncidents] = useState([]);
-  const [usingMocks, setUsingMocks] = useState(false);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -94,22 +53,9 @@ export default function IncidentsPage() {
       const data = await incidentService.getIncidents();
       const list = Array.isArray(data) ? data : [];
       setDbIncidents(list);
-      
-      if (list.length > 0) {
-        setUsingMocks(false);
-      } else {
-        setUsingMocks(true);
-        if (localMockIncidents.length === 0) {
-          setLocalMockIncidents(MOCK_INCIDENTS);
-        }
-      }
     } catch (err) {
       console.error('Error fetching incidents from API:', err);
-      // Fallback a mocks en caso de error
-      setUsingMocks(true);
-      if (localMockIncidents.length === 0) {
-        setLocalMockIncidents(MOCK_INCIDENTS);
-      }
+      setDbIncidents([]);
     } finally {
       setLoading(false);
     }
@@ -119,24 +65,14 @@ export default function IncidentsPage() {
   const handleChangeStatus = async (id, newStatus) => {
     setUpdatingStatus(true);
     try {
-      if (usingMocks) {
-        // Simular en local
-        setLocalMockIncidents(prev => 
-          prev.map(inc => inc._id === id ? { ...inc, status: newStatus } : inc)
-        );
-        // Actualizar en el modal si está abierto
-        setSelectedIncident(prev => prev && prev._id === id ? { ...prev, status: newStatus } : prev);
-        toast.success('Estado de incidencia simulado cambiado con éxito.');
-      } else {
-        // Llamada a la API real
-        const response = await incidentService.updateIncidentStatus(id, newStatus);
-        setDbIncidents(prev => 
-          prev.map(inc => inc._id === id ? { ...inc, status: response.status } : inc)
-        );
-        // Actualizar en el modal
-        setSelectedIncident(prev => prev && prev._id === id ? { ...prev, status: response.status } : prev);
-        toast.success(`Incidencia actualizada a "${newStatus === 'open' ? 'Pendiente' : newStatus === 'in_progress' ? 'En revisión' : newStatus === 'resolved' ? 'Resuelta' : 'Cerrada'}".`);
-      }
+      // Llamada a la API real
+      const response = await incidentService.updateIncidentStatus(id, newStatus);
+      setDbIncidents(prev => 
+        prev.map(inc => inc._id === id ? { ...inc, status: response.status } : inc)
+      );
+      // Actualizar en el modal
+      setSelectedIncident(prev => prev && prev._id === id ? { ...prev, status: response.status } : prev);
+      toast.success(`Incidencia actualizada a "${newStatus === 'open' ? 'Pendiente' : newStatus === 'in_progress' ? 'En revisión' : newStatus === 'resolved' ? 'Resuelta' : 'Cerrada'}".`);
     } catch (err) {
       console.error('Error al actualizar estado de la incidencia:', err);
     } finally {
@@ -156,14 +92,9 @@ export default function IncidentsPage() {
     setSubmittingDelete(true);
     try {
       const id = incidentToDelete._id || incidentToDelete.id;
-      if (usingMocks) {
-        setLocalMockIncidents(prev => prev.filter(inc => inc._id !== id));
-        toast.success('Incidencia simulada eliminada.');
-      } else {
-        await incidentService.deleteIncident(id);
-        setDbIncidents(prev => prev.filter(inc => inc._id !== id));
-        toast.success('Incidencia eliminada exitosamente.');
-      }
+      await incidentService.deleteIncident(id);
+      setDbIncidents(prev => prev.filter(inc => inc._id !== id));
+      toast.success('Incidencia eliminada exitosamente.');
       setIsDeleteModalOpen(false);
       setIncidentToDelete(null);
     } catch (err) {
@@ -173,11 +104,8 @@ export default function IncidentsPage() {
     }
   };
 
-  // Obtener lista actual a filtrar
-  const activeList = usingMocks ? localMockIncidents : dbIncidents;
-
   // Filtrar incidencias en cliente
-  const filteredIncidents = activeList.filter((incident) => {
+  const filteredIncidents = dbIncidents.filter((incident) => {
     // 1. Búsqueda por texto
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
@@ -227,12 +155,6 @@ export default function IncidentsPage() {
         setRouteFilter={setRouteFilter}
         routes={routes}
       />
-
-      {usingMocks && (
-        <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '10px 16px', borderRadius: 'var(--radius-md)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', color: '#60A5FA', marginBottom: '16px' }}>
-          💡 <b>Visualización Simulada</b>: La base de datos no cuenta con incidencias registradas. Mostrando datos de simulación interactivos.
-        </div>
-      )}
 
       {/* Grid de contenido */}
       {loading ? (

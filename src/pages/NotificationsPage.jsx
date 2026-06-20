@@ -4,53 +4,10 @@ import { FaCheckDouble, FaBell, FaInfoCircle } from 'react-icons/fa';
 import { notificationService } from '../services/api';
 import NotificationList from '../components/notifications/NotificationList';
 
-const getMockNotifications = () => {
-  const today = new Date();
-  const formatTime = (minsAgo) => {
-    return new Date(today.getTime() - minsAgo * 60 * 1000).toISOString();
-  };
-
-  return [
-    {
-      _id: "mocknotif001",
-      type: "NEW_INCIDENT",
-      title: "Nueva incidencia: Avería reportada",
-      message: "Incidencia de Avería reportada en la Ruta Colegio Norte (Autobús BUS-03). Gravedad: Alta.",
-      createdAt: formatTime(5),
-      read: false
-    },
-    {
-      _id: "mocknotif002",
-      type: "ROUTE_DELAYED",
-      title: "Retraso detectado",
-      message: "La Ruta Sur registra un retraso estimado de 15 minutos (ETA excede el horario de llegada programado).",
-      createdAt: formatTime(10),
-      read: false
-    },
-    {
-      _id: "mocknotif003",
-      type: "ROUTE_STARTED",
-      title: "Autobús inició recorrido",
-      message: "El autobús de la ruta Colegio Norte ha iniciado su recorrido.",
-      createdAt: formatTime(15),
-      read: true
-    },
-    {
-      _id: "mocknotif004",
-      type: "ROUTE_DEVIATED",
-      title: "Desvío detectado",
-      message: "El autobús de la ruta Colegio Centro (BUS-02) se ha desviado por 250 metros.",
-      createdAt: formatTime(20),
-      read: false
-    }
-  ];
-};
-
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all' o 'unread'
-  const [usingMocks, setUsingMocks] = useState(false);
   
   const socketRef = useRef(null);
 
@@ -71,18 +28,9 @@ export default function NotificationsPage() {
       const data = await notificationService.getNotifications();
       const list = Array.isArray(data) ? data : [];
       setNotifications(list);
-      
-      if (list.length === 0) {
-        setUsingMocks(true);
-        setNotifications(getMockNotifications());
-      } else {
-        setUsingMocks(false);
-      }
     } catch (err) {
       console.error('Error fetching notifications:', err);
-      // Fallback
-      setUsingMocks(true);
-      setNotifications(getMockNotifications());
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -112,12 +60,6 @@ export default function NotificationsPage() {
   };
 
   const handleRead = async (id) => {
-    // Si estamos usando mocks, actualizamos localmente
-    if (usingMocks) {
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
-      return;
-    }
-
     try {
       await notificationService.markAsRead(id);
       setNotifications(prev => 
@@ -129,11 +71,6 @@ export default function NotificationsPage() {
   };
 
   const handleMarkAllAsRead = async () => {
-    if (usingMocks) {
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      return;
-    }
-
     try {
       await notificationService.markAllAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -158,23 +95,6 @@ export default function NotificationsPage() {
           Historial completo de alertas, desvíos e incidencias registradas en tiempo real por el sistema.
         </p>
       </div>
-
-      {usingMocks && (
-        <div style={{ 
-          background: 'rgba(59, 130, 246, 0.08)', 
-          border: '1px solid rgba(59, 130, 246, 0.2)', 
-          padding: '10px 16px', 
-          borderRadius: 'var(--radius-md)', 
-          fontSize: '13px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px', 
-          color: '#60A5FA', 
-          marginBottom: '20px' 
-        }}>
-          💡 <b>Visualización Simulada</b>: No se registran alertas en la base de datos. Mostrando bandeja de notificaciones interactiva de prueba.
-        </div>
-      )}
 
       {/* Controles superiores */}
       <div 

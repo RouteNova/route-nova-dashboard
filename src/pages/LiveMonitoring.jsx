@@ -416,10 +416,6 @@ export default function LiveMonitoring() {
           >
             <FaSyncAlt /> Refrescar
           </button>
-          
-          <div className="navbar-api-badge" style={{ background: 'rgba(34, 197, 94, 0.08)', color: 'var(--color-success)' }}>
-            <FaBroadcastTower /> Canal WebSockets Activo
-          </div>
         </div>
       </div>
 

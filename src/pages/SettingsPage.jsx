@@ -10,8 +10,6 @@ import { authService, settingsService } from '../services/api';
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
-  const [usingMocks, setUsingMocks] = useState(false);
-
   // Datos
   const [userProfile, setUserProfile] = useState(null);
   const [globalSettings, setGlobalSettings] = useState(null);
@@ -52,37 +50,48 @@ export default function SettingsPage() {
       if (settingsRes) {
         setGlobalSettings(settingsRes);
       } else {
-        setUsingMocks(true);
-        triggerFallbackSettings();
+        setGlobalSettings({
+          transport: { maxDelay: 15, maxDistance: 200, gpsInterval: 5 },
+          notifications: {
+            incidents: true,
+            delays: true,
+            deviations: true,
+            boardings: false,
+            sound: true,
+            frequency: 'immediate',
+            alertTypes: ['push', 'email']
+          },
+          security: { sessionDuration: 8, autoLogout: true },
+          institution: {
+            name: 'Colegio RouteNova',
+            address: '',
+            phone: ''
+          }
+        });
       }
     } catch (err) {
       console.error('Error cargando configuración:', err);
-      setUsingMocks(true);
-      triggerFallbackSettings();
+      setGlobalSettings({
+        transport: { maxDelay: 15, maxDistance: 200, gpsInterval: 5 },
+        notifications: {
+          incidents: true,
+          delays: true,
+          deviations: true,
+          boardings: false,
+          sound: true,
+          frequency: 'immediate',
+          alertTypes: ['push', 'email']
+        },
+        security: { sessionDuration: 8, autoLogout: true },
+        institution: {
+          name: 'Colegio RouteNova',
+          address: '',
+          phone: ''
+        }
+      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const triggerFallbackSettings = () => {
-    setGlobalSettings({
-      transport: { maxDelay: 15, maxDistance: 200, gpsInterval: 5 },
-      notifications: {
-        incidents: true,
-        delays: true,
-        deviations: true,
-        boardings: false,
-        sound: true,
-        frequency: 'immediate',
-        alertTypes: ['push', 'email']
-      },
-      security: { sessionDuration: 8, autoLogout: true },
-      institution: {
-        name: 'Colegio RouteNova (Mock)',
-        address: 'Av. Principal #123, Santo Domingo',
-        phone: '809-555-0199'
-      }
-    });
   };
 
   const handleUpdateUserProfile = (updatedProfile) => {
@@ -264,22 +273,6 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {usingMocks && (
-        <div style={{ 
-          background: 'rgba(59, 130, 246, 0.08)', 
-          border: '1px solid rgba(59, 130, 246, 0.2)', 
-          padding: '10px 16px', 
-          borderRadius: 'var(--radius-md)', 
-          fontSize: '13px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px', 
-          color: '#60A5FA', 
-          marginBottom: '20px' 
-        }}>
-          💡 <b>Modo de Demostración</b>: Cargando configuraciones de demostración debido a desconexión del servidor.
-        </div>
-      )}
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>

@@ -81,11 +81,6 @@ export default function Navbar({ onToggleSidebar }) {
 
       {/* Acciones de Cabecera */}
       <div className="navbar-actions">
-        {/* Indicador de Estado de API */}
-        <div className="navbar-api-badge">
-          <span style={{ width: '8px', height: '8px', background: 'var(--color-secondary)', borderRadius: '50%', display: 'inline-block' }}></span>
-          <span>API Conectada</span>
-        </div>
 
         {/* Acceso Rápido a Mapa en Vivo */}
         <button 

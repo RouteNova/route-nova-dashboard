@@ -5,171 +5,10 @@ import ReportFilters from '../components/reports/ReportFilters';
 import ReportViewer from '../components/reports/ReportViewer';
 import ExportButtons from '../components/reports/ExportButtons';
 
-// Mocks realistas para demostración e interactividad offline
-const getMockData = () => {
-  const today = new Date();
-  const formatTime = (daysAgo, hours, minutes) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - daysAgo);
-    d.setHours(hours, minutes, 0, 0);
-    return d.toISOString();
-  };
-
-  const mockEvents = [
-    // Día 0 (Hoy)
-    {
-      _id: "evt001",
-      type: "student_boarded",
-      createdAt: formatTime(0, 7, 15),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud1", nombre: "Ana Pérez" }
-    },
-    {
-      _id: "evt002",
-      type: "student_dropped",
-      createdAt: formatTime(0, 8, 0),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud1", nombre: "Ana Pérez" }
-    },
-    {
-      _id: "evt003",
-      type: "student_boarded",
-      createdAt: formatTime(0, 7, 25),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud2", nombre: "Carlos Pérez" }
-    },
-    {
-      _id: "evt004",
-      type: "student_dropped",
-      createdAt: formatTime(0, 8, 10),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud2", nombre: "Carlos Pérez" }
-    },
-    // Día 1 (Ayer)
-    {
-      _id: "evt101",
-      type: "student_boarded",
-      createdAt: formatTime(1, 7, 10),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud1", nombre: "Ana Pérez" }
-    },
-    {
-      _id: "evt102",
-      type: "student_dropped",
-      createdAt: formatTime(1, 7, 55),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud1", nombre: "Ana Pérez" }
-    },
-    {
-      _id: "evt103",
-      type: "student_boarded",
-      createdAt: formatTime(1, 7, 30),
-      route: { _id: "route2", nombre: "Ruta Colegio Sur" },
-      student: { _id: "stud3", nombre: "Sofía Gómez" }
-    },
-    {
-      _id: "evt104",
-      type: "student_dropped",
-      createdAt: formatTime(1, 8, 15),
-      route: { _id: "route2", nombre: "Ruta Colegio Sur" },
-      student: { _id: "stud3", nombre: "Sofía Gómez" }
-    },
-    // Día 2 (Hace 2 días)
-    {
-      _id: "evt201",
-      type: "student_boarded",
-      createdAt: formatTime(2, 7, 12),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud1", nombre: "Ana Pérez" }
-    },
-    {
-      _id: "evt202",
-      type: "student_dropped",
-      createdAt: formatTime(2, 7, 59),
-      route: { _id: "route1", nombre: "Ruta Colegio Norte" },
-      student: { _id: "stud1", nombre: "Ana Pérez" }
-    },
-    {
-      _id: "evt203",
-      type: "student_boarded",
-      createdAt: formatTime(2, 7, 22),
-      route: { _id: "route2", nombre: "Ruta Colegio Sur" },
-      student: { _id: "stud3", nombre: "Sofía Gómez" }
-    }
-    // Nota: Sofía no tiene dropping en día 2 (no descendió o sin registrar)
-  ];
-
-  const mockIncidents = [
-    {
-      _id: "inc001",
-      type: "delay",
-      routeName: "Ruta Colegio Norte",
-      routeId: "route1",
-      severity: "medium",
-      status: "resolved",
-      createdAt: formatTime(0, 7, 30)
-    },
-    {
-      _id: "inc002",
-      type: "vehicle_breakdown",
-      routeName: "Ruta Colegio Sur",
-      routeId: "route2",
-      severity: "critical",
-      status: "in_progress",
-      createdAt: formatTime(1, 7, 45)
-    },
-    {
-      _id: "inc003",
-      type: "weather_condition",
-      routeName: "Ruta Colegio Norte",
-      routeId: "route1",
-      severity: "low",
-      status: "closed",
-      createdAt: formatTime(2, 8, 0)
-    }
-  ];
-
-  const mockRoutesHistory = [
-    {
-      routeName: "Ruta Colegio Norte",
-      routeId: "route1",
-      driverName: "Carlos López",
-      autobusPatente: "BUS-01",
-      startTime: formatTime(0, 7, 0),
-      endTime: formatTime(0, 8, 20),
-      durationMinutes: 80,
-      incidentCount: 1
-    },
-    {
-      routeName: "Ruta Colegio Sur",
-      routeId: "route2",
-      driverName: "Juan Pérez",
-      autobusPatente: "BUS-02",
-      startTime: formatTime(1, 7, 15),
-      endTime: formatTime(1, 8, 0),
-      durationMinutes: 45,
-      incidentCount: 1
-    },
-    {
-      routeName: "Ruta Colegio Norte",
-      routeId: "route1",
-      driverName: "Carlos López",
-      autobusPatente: "BUS-01",
-      startTime: formatTime(2, 7, 0),
-      endTime: formatTime(2, 8, 15),
-      durationMinutes: 75,
-      incidentCount: 0
-    }
-  ];
-
-  return { mockEvents, mockIncidents, mockRoutesHistory };
-};
-
 export default function ReportsPage() {
   const [activeReport, setActiveReport] = useState('students');
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [usingMocks, setUsingMocks] = useState(false);
 
   // Estados de datos crudos
   const [eventsData, setEventsData] = useState([]);
@@ -203,11 +42,7 @@ export default function ReportsPage() {
       setRoutes(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error cargando catalogo de rutas:', err);
-      // Fallback
-      setRoutes([
-        { _id: "route1", nombre: "Ruta Colegio Norte" },
-        { _id: "route2", nombre: "Ruta Colegio Sur" }
-      ]);
+      setRoutes([]);
     }
   };
 
@@ -218,11 +53,6 @@ export default function ReportsPage() {
         const events = await eventService.getEvents();
         const list = Array.isArray(events) ? events : [];
         setEventsData(list);
-        if (list.length === 0) {
-          triggerMockFallback();
-        } else {
-          setUsingMocks(false);
-        }
       } else if (activeReport === 'incidents') {
         const incidents = await incidentService.getIncidents();
         const list = Array.isArray(incidents) ? incidents : [];
@@ -233,11 +63,6 @@ export default function ReportsPage() {
           routeId: inc.route?._id || inc.route
         }));
         setIncidentsData(normalized);
-        if (list.length === 0) {
-          triggerMockFallback();
-        } else {
-          setUsingMocks(false);
-        }
       } else if (activeReport === 'routes') {
         const routesHistory = await routeService.getRouteHistory();
         const list = Array.isArray(routesHistory) ? routesHistory : [];
@@ -253,26 +78,15 @@ export default function ReportsPage() {
           incidentCount: rh.incidenciasContador || 0
         }));
         setRoutesHistoryData(normalized);
-        if (list.length === 0) {
-          triggerMockFallback();
-        } else {
-          setUsingMocks(false);
-        }
       }
     } catch (err) {
       console.error(`Error cargando reporte ${activeReport}:`, err);
-      triggerMockFallback();
+      setEventsData([]);
+      setIncidentsData([]);
+      setRoutesHistoryData([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const triggerMockFallback = () => {
-    setUsingMocks(true);
-    const mocks = getMockData();
-    setEventsData(mocks.mockEvents);
-    setIncidentsData(mocks.mockIncidents);
-    setRoutesHistoryData(mocks.mockRoutesHistory);
   };
 
   const handleResetFilters = () => {
@@ -434,23 +248,6 @@ export default function ReportsPage() {
         onReset={handleResetFilters}
       />
 
-      {/* Banner de visualización simulada */}
-      {usingMocks && (
-        <div style={{ 
-          background: 'rgba(59, 130, 246, 0.08)', 
-          border: '1px solid rgba(59, 130, 246, 0.2)', 
-          padding: '10px 16px', 
-          borderRadius: 'var(--radius-md)', 
-          fontSize: '13px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px', 
-          color: '#60A5FA', 
-          marginBottom: '16px' 
-        }}>
-          💡 <b>Visualización Simulada</b>: No se registran eventos activos en la base de datos de auditoría. Mostrando bitácora interactiva de simulación para exportación.
-        </div>
-      )}
 
       {/* Controles de Exportación y Visor */}
       {loading ? (
