@@ -125,6 +125,57 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         busModelUrl,
         (gltf) => {
           this.busModel = gltf.scene;
+
+          // Cambiar color del autobús de azul a amarillo escolar modificando los píxeles de la textura
+          this.busModel.traverse((child) => {
+            if (child.isMesh && child.material) {
+              const materials = Array.isArray(child.material) ? child.material : [child.material];
+              materials.forEach(mat => {
+                if (mat.map && mat.map.image) {
+                  const img = mat.map.image;
+                  try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width || img.naturalWidth || 128;
+                    canvas.height = img.height || img.naturalHeight || 128;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imgData.data;
+
+                    let hasBlue = false;
+                    for (let i = 0; i < data.length; i += 4) {
+                      const r = data[i];
+                      const g = data[i+1];
+                      const b = data[i+2];
+
+                      // Detectar azul predominante en la paleta
+                      if (b > r * 1.3 && b > g * 1.1) {
+                        // Cambiar a amarillo escolar (#FFB300 -> R:255, G:179, B:0)
+                        data[i] = 255;
+                        data[i+1] = 179;
+                        data[i+2] = 0;
+                        hasBlue = true;
+                      }
+                    }
+
+                    if (hasBlue) {
+                      ctx.putImageData(imgData, 0, 0);
+                      const newTexture = new THREE.CanvasTexture(canvas);
+                      newTexture.wrapS = mat.map.wrapS;
+                      newTexture.wrapT = mat.map.wrapT;
+                      newTexture.flipY = mat.map.flipY;
+                      mat.map = newTexture;
+                      mat.needsUpdate = true;
+                    }
+                  } catch (e) {
+                    console.error('Error modifying texture canvas in MapView:', e);
+                  }
+                }
+              });
+            }
+          });
+
           this.scene.add(this.busModel);
           console.log('3D Bus model loaded successfully in dashboard MapView');
           mapInstance.triggerRepaint();
@@ -274,27 +325,37 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
     setIs3DActive(prev => {
       const next = !prev;
       const map = mapInstanceRef.current;
-      if (map && selectedRoute) {
+      if (map) {
         if (next) {
-          const currentPoint = lastSelectedRouteCoordsRef.current;
-          const heading = lastSelectedRouteHeadingRef.current || 0;
-          if (currentPoint) {
-            let cameraCenter = currentPoint;
-            try {
-              cameraCenter = turf.destination(
-                turf.point(currentPoint),
-                0.05, // 50 metros adelante
-                heading,
-                { units: 'kilometers' }
-              ).geometry.coordinates;
-            } catch (err) {
-              console.error(err);
+          if (selectedRoute) {
+            const currentPoint = lastSelectedRouteCoordsRef.current;
+            const heading = lastSelectedRouteHeadingRef.current || 0;
+            if (currentPoint) {
+              let cameraCenter = currentPoint;
+              try {
+                cameraCenter = turf.destination(
+                  turf.point(currentPoint),
+                  0.05, // 50 metros adelante
+                  heading,
+                  { units: 'kilometers' }
+                ).geometry.coordinates;
+              } catch (err) {
+                console.error(err);
+              }
+              map.easeTo({
+                pitch: 65,
+                bearing: heading,
+                center: cameraCenter,
+                zoom: 18,
+                duration: 1000
+              });
             }
+          } else {
+            // Sin ruta seleccionada: inclinar el mapa globalmente para ver edificios 3D
             map.easeTo({
-              pitch: 65,
-              bearing: heading,
-              center: cameraCenter,
-              zoom: 18,
+              pitch: 50,
+              bearing: -10,
+              zoom: map.getZoom() < 13 ? 14 : map.getZoom(),
               duration: 1000
             });
           }
@@ -305,7 +366,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
             duration: 1000
           });
           
-          if (lastSelectedRouteCoordsRef.current && streetMatchedCoords.length > 0) {
+          if (selectedRoute && lastSelectedRouteCoordsRef.current && streetMatchedCoords.length > 0) {
             const bounds = new mapboxgl.LngLatBounds();
             bounds.extend(lastSelectedRouteCoordsRef.current);
             streetMatchedCoords.forEach(coord => bounds.extend(coord));
@@ -820,7 +881,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
       />
       
       {/* Botón flotante para alternar vista 3D */}
-      {selectedRoute && (
+      {activeRoutes.length > 0 && (
         <button
           onClick={handleToggle3D}
           style={{
