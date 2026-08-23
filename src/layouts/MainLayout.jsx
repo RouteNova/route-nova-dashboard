@@ -31,7 +31,7 @@ export default function MainLayout() {
         <Navbar onToggleSidebar={toggleSidebar} />
 
         {/* Vista Anidada Dinámica */}
-        <main style={{ flex: 1 }}>
+        <main className="main-page-wrapper">
           <Outlet />
         </main>
       </div>

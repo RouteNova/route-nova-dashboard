@@ -15,11 +15,53 @@ import {
 } from 'react-icons/fa';
 import { routeService, conductorService, autobusService } from '../services/api';
 import { toast } from 'react-toastify';
+import ModalPortal from '../components/common/ModalPortal';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiZnJhbmNpc2NvMDgyIiwiYSI6ImNtcWI0eXJkMDBkZm0yc3F5bGNkMDdudW8ifQ.hUD-NrHEMSqRfWiNmJs6hA';
 mapboxgl.accessToken = MAPBOX_TOKEN;
+
+// Consultar la API de Direcciones de Mapbox para obtener la geometría adaptada a calles reales
+async function fetchStreetMatchedRoute(points) {
+  if (!points || points.length < 2) return points.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+  try {
+    const rawCoords = points.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+    
+    if (rawCoords.length <= 25) {
+      const waypoints = rawCoords.map(p => p.join(',')).join(';');
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?geometries=geojson&overview=full&access_token=${MAPBOX_TOKEN}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.routes && data.routes.length > 0) {
+        return data.routes[0].geometry.coordinates;
+      }
+    } else {
+      let allMatched = [];
+      for (let i = 0; i < rawCoords.length - 1; i += 24) {
+        const slice = rawCoords.slice(i, i + 25);
+        const waypoints = slice.map(p => p.join(',')).join(';');
+        const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?geometries=geojson&overview=full&access_token=${MAPBOX_TOKEN}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.routes && data.routes.length > 0) {
+          const segCoords = data.routes[0].geometry.coordinates;
+          if (allMatched.length > 0) {
+            allMatched.push(...segCoords.slice(1));
+          } else {
+            allMatched.push(...segCoords);
+          }
+        } else {
+          allMatched.push(...slice);
+        }
+      }
+      return allMatched;
+    }
+  } catch (e) {
+    console.error('Error fetching street matched route in Rutas:', e);
+  }
+  return points.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+}
 
 export default function Rutas() {
   const [routes, setRoutes] = useState([]);
@@ -117,22 +159,35 @@ export default function Rutas() {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const runMapUpdates = () => {
+    let isSubscribed = true;
+
+    const runMapUpdates = async () => {
       // 1. Eliminar marcadores anteriores
       routeMarkersRef.current.forEach(m => m.remove());
       routeMarkersRef.current = [];
 
-      const pathCoords = formValues.puntosRuta.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+      const points = formValues.puntosRuta;
+      const pathCoords = points.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
       const sourceId = 'form-route-source';
       const layerId = 'form-route-layer';
 
       // 2. Dibujar o actualizar línea del trayecto
       if (pathCoords.length > 0) {
+        let lineCoords = pathCoords;
+        if (pathCoords.length >= 2) {
+          const matched = await fetchStreetMatchedRoute(points);
+          if (isSubscribed && matched && matched.length > 0) {
+            lineCoords = matched;
+          }
+        }
+
+        if (!isSubscribed) return;
+
         const geojson = {
           type: 'Feature',
           geometry: {
             type: 'LineString',
-            coordinates: pathCoords
+            coordinates: lineCoords
           }
         };
 
@@ -153,23 +208,23 @@ export default function Rutas() {
             },
             paint: {
               'line-color': '#2563EB', // Azul
-              'line-width': 4,
-              'line-opacity': 0.8
+              'line-width': 5,
+              'line-opacity': 0.85
             }
           });
         }
 
         // 3. Agregar marcadores numerados con colores interactivos
-        formValues.puntosRuta.forEach((pt, idx) => {
+        points.forEach((pt, idx) => {
           const el = document.createElement('div');
-          el.style.width = '20px';
-          el.style.height = '20px';
+          el.style.width = '24px';
+          el.style.height = '24px';
           el.style.borderRadius = '50%';
-          el.style.background = idx === 0 ? '#22C55E' : idx === formValues.puntosRuta.length - 1 ? '#EF4444' : '#F59E0B';
+          el.style.background = idx === 0 ? '#22C55E' : idx === points.length - 1 ? '#EF4444' : '#F59E0B';
           el.style.border = '2px solid white';
-          el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.35)';
+          el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.4)';
           el.style.color = 'white';
-          el.style.fontSize = '9px';
+          el.style.fontSize = '10px';
           el.style.fontWeight = '800';
           el.style.display = 'flex';
           el.style.alignItems = 'center';
@@ -195,6 +250,10 @@ export default function Rutas() {
     } else {
       map.once('style.load', runMapUpdates);
     }
+
+    return () => {
+      isSubscribed = false;
+    };
   }, [formValues.puntosRuta]);
 
   // Cargar rutas con debounce para búsqueda
@@ -646,332 +705,338 @@ export default function Rutas() {
         </>
       )}
 
-      {/* MODAL DE CREACIÓN / EDICIÓN */}
+      {/* MODAL DE CREACIÓN / EDICIÓN DE RUTA */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog" style={{ maxWidth: '550px', maxHeight: '92vh' }}>
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {modalMode === 'create' ? 'Registrar Nueva Ruta Escolar' : 'Editar Datos de Ruta'}
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de formulario"
-              >
-                <FaTimes />
-              </button>
-            </div>
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog" style={{ maxWidth: '650px', maxHeight: '92vh' }}>
+              <div className="modal-header">
+                <h3 className="modal-title">
+                  {modalMode === 'create' ? 'Registrar Nueva Ruta Escolar' : 'Editar Parámetros de Ruta'}
+                </h3>
+                <button 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de formulario"
+                >
+                  <FaTimes />
+                </button>
+              </div>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Nombre de la Ruta */}
-                <div className="input-group" style={{ marginBottom: 0 }}>
-                  <label className="input-label" htmlFor="route-nombre">Nombre de la Ruta</label>
-                  <input 
-                    type="text" 
-                    id="route-nombre"
-                    name="nombre"
-                    value={formValues.nombre}
-                    onChange={handleInputChange}
-                    className={`input-field ${formErrors.nombre ? 'error' : ''}`}
-                    placeholder="Ej. Ruta Norte - Las Condes"
-                    required
-                  />
-                  {formErrors.nombre && (
-                    <span className="field-error-text">{formErrors.nombre}</span>
-                  )}
-                </div>
-
-                {/* Grid Horas y Estado */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Nombre de la Ruta */}
                   <div className="input-group" style={{ marginBottom: 0 }}>
-                    <label className="input-label" htmlFor="route-salida">Hora Salida (HH:MM)</label>
+                    <label className="input-label" htmlFor="route-nombre">Nombre de la Ruta</label>
                     <input 
-                      type="time" 
-                      id="route-salida"
-                      name="horaSalida"
-                      value={formValues.horaSalida}
+                      type="text" 
+                      id="route-nombre"
+                      name="nombre"
+                      value={formValues.nombre}
                       onChange={handleInputChange}
-                      className={`input-field ${formErrors.horaSalida ? 'error' : ''}`}
+                      className={`input-field ${formErrors.nombre ? 'error' : ''}`}
+                      placeholder="Ej. Ruta Norte - Las Condes"
                       required
                     />
-                    {formErrors.horaSalida && (
-                      <span className="field-error-text">{formErrors.horaSalida}</span>
+                    {formErrors.nombre && (
+                      <span className="field-error-text">{formErrors.nombre}</span>
                     )}
                   </div>
 
-                  <div className="input-group" style={{ marginBottom: 0 }}>
-                    <label className="input-label" htmlFor="route-llegada">Hora Regreso (HH:MM)</label>
-                    <input 
-                      type="time" 
-                      id="route-llegada"
-                      name="horaLlegada"
-                      value={formValues.horaLlegada}
-                      onChange={handleInputChange}
-                      className={`input-field ${formErrors.horaLlegada ? 'error' : ''}`}
-                      required
+                  {/* Grid Horas y Estado */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label className="input-label" htmlFor="route-salida">Hora Salida (HH:MM)</label>
+                      <input 
+                        type="time" 
+                        id="route-salida"
+                        name="horaSalida"
+                        value={formValues.horaSalida}
+                        onChange={handleInputChange}
+                        className={`input-field ${formErrors.horaSalida ? 'error' : ''}`}
+                        required
+                      />
+                      {formErrors.horaSalida && (
+                        <span className="field-error-text">{formErrors.horaSalida}</span>
+                      )}
+                    </div>
+
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label className="input-label" htmlFor="route-llegada">Hora Regreso (HH:MM)</label>
+                      <input 
+                        type="time" 
+                        id="route-llegada"
+                        name="horaLlegada"
+                        value={formValues.horaLlegada}
+                        onChange={handleInputChange}
+                        className={`input-field ${formErrors.horaLlegada ? 'error' : ''}`}
+                        required
+                      />
+                      {formErrors.horaLlegada && (
+                        <span className="field-error-text">{formErrors.horaLlegada}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Selección de Conductor y Autobús */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label className="input-label" htmlFor="route-conductor">Conductor Asignado</label>
+                      <select 
+                        id="route-conductor"
+                        name="conductorId"
+                        value={formValues.conductorId}
+                        onChange={handleInputChange}
+                        className={`input-field ${formErrors.conductorId ? 'error' : ''}`}
+                        required
+                      >
+                        <option value="">-- Seleccionar --</option>
+                        {conductors.map(c => (
+                          <option key={c._id} value={c._id}>
+                            {c.usuarioId?.nombre || c.nombre || 'Sin nombre'} ({c.telefono || 'Sin tel'})
+                          </option>
+                        ))}
+                      </select>
+                      {formErrors.conductorId && (
+                        <span className="field-error-text">{formErrors.conductorId}</span>
+                      )}
+                    </div>
+
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label className="input-label" htmlFor="route-bus">Autobús Asignado</label>
+                      <select 
+                        id="route-bus"
+                        name="autobusId"
+                        value={formValues.autobusId}
+                        onChange={handleInputChange}
+                        className={`input-field ${formErrors.autobusId ? 'error' : ''}`}
+                        required
+                      >
+                        <option value="">-- Seleccionar --</option>
+                        {autobuses.map(b => (
+                          <option key={b._id} value={b._id} disabled={b.activo === false}>
+                            {b.patente} ({b.modelo}) {b.activo === false ? '[Inactivo]' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {formErrors.autobusId && (
+                        <span className="field-error-text">{formErrors.autobusId}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Estado y Umbral de desvío */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label className="input-label" htmlFor="route-estado">Estado de la Ruta</label>
+                      <select 
+                        id="route-estado"
+                        name="estado"
+                        value={formValues.estado}
+                        onChange={handleInputChange}
+                        className="input-field"
+                      >
+                        <option value="programada">Programada</option>
+                        <option value="en_curso">En curso</option>
+                        <option value="finalizada">Finalizada</option>
+                      </select>
+                    </div>
+
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label className="input-label" htmlFor="route-umbral">Umbral Desvío (Metros)</label>
+                      <input 
+                        type="number" 
+                        id="route-umbral"
+                        name="umbralDesvio"
+                        value={formValues.umbralDesvio}
+                        onChange={handleInputChange}
+                        className={`input-field ${formErrors.umbralDesvio ? 'error' : ''}`}
+                        min="10"
+                        required
+                      />
+                      {formErrors.umbralDesvio && (
+                        <span className="field-error-text">{formErrors.umbralDesvio}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Constructor de Puntos de Control (puntosRuta) */}
+                  <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                        <FaMapMarkerAlt style={{ color: 'var(--color-primary)' }} /> Trazado de Trayecto (Mapa Interactivo)
+                      </h4>
+                      {formValues.puntosRuta.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFormValues(prev => ({ ...prev, puntosRuta: [] }))}
+                          className="btn-secondary"
+                          style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+                        >
+                          Limpiar Puntos
+                        </button>
+                      )}
+                    </div>
+                    
+                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '11px', margin: 0 }}>
+                      💡 <b>Haz clic en el mapa</b> para trazar la ruta punto a punto de forma secuencial.
+                    </p>
+
+                    {/* Contenedor del Mapa Mapbox */}
+                    <div 
+                      ref={mapContainerRef} 
+                      style={{ 
+                        width: '100%', 
+                        height: '240px', 
+                        borderRadius: 'var(--radius-md)', 
+                        border: '1px solid var(--color-border)',
+                        overflow: 'hidden'
+                      }}
                     />
-                    {formErrors.horaLlegada && (
-                      <span className="field-error-text">{formErrors.horaLlegada}</span>
-                    )}
-                  </div>
-                </div>
+                    
+                    {/* Lista de Puntos actuales */}
+                    <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0, 0, 0, 0.02)', padding: '6px', borderRadius: 'var(--radius-md)' }}>
+                      {formValues.puntosRuta.length === 0 ? (
+                        <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', padding: '6px', fontStyle: 'italic' }}>
+                          Usa el mapa de arriba para añadir paradas y puntos de control al trayecto.
+                        </span>
+                      ) : (
+                        formValues.puntosRuta.map((pt, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-card)', padding: '4px 10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text)', fontWeight: '600' }}>
+                              {idx === 0 ? '🏁 Inicio' : idx === formValues.puntosRuta.length - 1 ? '🏫 Escuela' : `📍 Punto ${idx + 1}`}: Lat: {pt.latitud}, Lng: {pt.longitud}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePoint(idx)}
+                              style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
+                              title="Eliminar punto"
+                            >
+                              <FaTimes />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
 
-                {/* Conductor y Autobús */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div className="input-group" style={{ marginBottom: 0 }}>
-                    <label className="input-label" htmlFor="route-conductor">Conductor Asignado</label>
-                    <select 
-                      id="route-conductor"
-                      name="conductorId"
-                      value={formValues.conductorId}
-                      onChange={handleInputChange}
-                      className={`input-field ${formErrors.conductorId ? 'error' : ''}`}
-                      required
-                    >
-                      <option value="">-- Seleccionar --</option>
-                      {conductors.map(c => (
-                        <option key={c._id} value={c.usuarioId._id}>{c.usuarioId.nombre}</option>
-                      ))}
-                    </select>
-                    {formErrors.conductorId && (
-                      <span className="field-error-text">{formErrors.conductorId}</span>
-                    )}
-                  </div>
-
-                  <div className="input-group" style={{ marginBottom: 0 }}>
-                    <label className="input-label" htmlFor="route-autobus">Autobús Asignado</label>
-                    <select 
-                      id="route-autobus"
-                      name="autobusId"
-                      value={formValues.autobusId}
-                      onChange={handleInputChange}
-                      className={`input-field ${formErrors.autobusId ? 'error' : ''}`}
-                      required
-                    >
-                      <option value="">-- Seleccionar --</option>
-                      {autobuses.map(b => (
-                        <option key={b._id} value={b._id} disabled={b.activo === false}>
-                          {b.patente} ({b.modelo}) {b.activo === false ? '[Inactivo]' : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {formErrors.autobusId && (
-                      <span className="field-error-text">{formErrors.autobusId}</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Estado y Umbral de desvío */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div className="input-group" style={{ marginBottom: 0 }}>
-                    <label className="input-label" htmlFor="route-estado">Estado de la Ruta</label>
-                    <select 
-                      id="route-estado"
-                      name="estado"
-                      value={formValues.estado}
-                      onChange={handleInputChange}
-                      className="input-field"
-                    >
-                      <option value="programada">Programada</option>
-                      <option value="en_curso">En curso</option>
-                      <option value="finalizada">Finalizada</option>
-                    </select>
-                  </div>
-
-                  <div className="input-group" style={{ marginBottom: 0 }}>
-                    <label className="input-label" htmlFor="route-umbral">Umbral Desvío (Metros)</label>
-                    <input 
-                      type="number" 
-                      id="route-umbral"
-                      name="umbralDesvio"
-                      value={formValues.umbralDesvio}
-                      onChange={handleInputChange}
-                      className={`input-field ${formErrors.umbralDesvio ? 'error' : ''}`}
-                      min="10"
-                      required
-                    />
-                    {formErrors.umbralDesvio && (
-                      <span className="field-error-text">{formErrors.umbralDesvio}</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Constructor de Puntos de Control (puntosRuta) */}
-                <div className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                      <FaMapMarkerAlt style={{ color: 'var(--color-primary)' }} /> Trazado de Trayecto (Mapa Interactivo)
-                    </h4>
-                    {formValues.puntosRuta.length > 0 && (
+                    {/* Formulario rápido para añadir punto manualmente como alternativa */}
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', borderTop: '1px dashed var(--color-border)', paddingTop: '10px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Latitud Manual</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ej. 18.486" 
+                          value={tempLat} 
+                          onChange={(e) => setTempLat(e.target.value)} 
+                          className="input-field" 
+                          style={{ padding: '6px 8px', fontSize: '11px', height: '32px' }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Longitud Manual</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ej. -69.931" 
+                          value={tempLng} 
+                          onChange={(e) => setTempLng(e.target.value)} 
+                          className="input-field" 
+                          style={{ padding: '6px 8px', fontSize: '11px', height: '32px' }}
+                        />
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setFormValues(prev => ({ ...prev, puntosRuta: [] }))}
+                        onClick={handleAddPoint}
                         className="btn-secondary"
-                        style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
+                        style={{ padding: '6px 12px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '11px' }}
                       >
-                        Limpiar Puntos
+                        <FaPlus /> Añadir
                       </button>
-                    )}
-                  </div>
-                  
-                  <p style={{ color: 'var(--color-text-secondary)', fontSize: '11px', margin: 0 }}>
-                    💡 <b>Haz clic en el mapa</b> para trazar la ruta punto a punto de forma secuencial.
-                  </p>
-
-                  {/* Contenedor del Mapa Mapbox */}
-                  <div 
-                    ref={mapContainerRef} 
-                    style={{ 
-                      width: '100%', 
-                      height: '240px', 
-                      borderRadius: 'var(--radius-md)', 
-                      border: '1px solid var(--color-border)',
-                      overflow: 'hidden'
-                    }}
-                  />
-                  
-                  {/* Lista de Puntos actuales */}
-                  <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(0, 0, 0, 0.02)', padding: '6px', borderRadius: 'var(--radius-md)' }}>
-                    {formValues.puntosRuta.length === 0 ? (
-                      <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', padding: '6px', fontStyle: 'italic' }}>
-                        Usa el mapa de arriba para añadir paradas y puntos de control al trayecto.
-                      </span>
-                    ) : (
-                      formValues.puntosRuta.map((pt, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-card)', padding: '4px 10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--color-text)', fontWeight: '600' }}>
-                            {idx === 0 ? '🏁 Inicio' : idx === formValues.puntosRuta.length - 1 ? '🏫 Escuela' : `📍 Punto ${idx + 1}`}: Lat: {pt.latitud}, Lng: {pt.longitud}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePoint(idx)}
-                            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                            title="Eliminar punto"
-                          >
-                            <FaTimes />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Formulario rápido para añadir punto manualmente como alternativa */}
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', borderTop: '1px dashed var(--color-border)', paddingTop: '10px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Latitud Manual</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ej. 18.486" 
-                        value={tempLat} 
-                        onChange={(e) => setTempLat(e.target.value)} 
-                        className="input-field" 
-                        style={{ padding: '6px 8px', fontSize: '11px', height: '32px' }}
-                      />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '2px' }}>Longitud Manual</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ej. -69.931" 
-                        value={tempLng} 
-                        onChange={(e) => setTempLng(e.target.value)} 
-                        className="input-field" 
-                        style={{ padding: '6px 8px', fontSize: '11px', height: '32px' }}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddPoint}
-                      className="btn-secondary"
-                      style={{ padding: '6px 12px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '11px' }}
-                    >
-                      <FaPlus /> Añadir
-                    </button>
                   </div>
                 </div>
+
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)}
+                    className="btn-secondary"
+                    disabled={submitting}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn-primary btn-submit"
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Guardando...
+                      </div>
+                    ) : (
+                      modalMode === 'create' ? 'Crear Ruta' : 'Guardar Cambios'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {isDeleteModalOpen && (
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog danger" style={{ maxWidth: '400px' }}>
+              <div className="modal-header">
+                <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaExclamationTriangle /> ¿Eliminar Ruta Escolar?
+                </h3>
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de eliminación"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <p style={{ color: 'var(--color-text)', fontSize: '14px', marginBottom: '12px' }}>
+                  ¿Estás seguro de que deseas eliminar permanentemente la ruta escolar <strong>{routeToDelete?.nombre}</strong>?
+                </p>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+                  Esta acción no se puede deshacer y removerá la asignación de ruta de todos los alumnos vinculados.
+                </p>
               </div>
 
               <div className="modal-footer">
                 <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => setIsDeleteModalOpen(false)}
                   className="btn-secondary"
                   disabled={submitting}
                 >
                   Cancelar
                 </button>
                 <button 
-                  type="submit" 
-                  className="btn-primary btn-submit"
+                  onClick={handleDeleteConfirm}
+                  className="btn-danger"
                   disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                   {submitting ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Guardando...
-                    </div>
+                    <>
+                      <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
+                    </>
                   ) : (
-                    modalMode === 'create' ? 'Crear Ruta' : 'Guardar Cambios'
+                    'Sí, Eliminar Ruta'
                   )}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
-      {isDeleteModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog danger" style={{ maxWidth: '400px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaExclamationTriangle /> ¿Eliminar Ruta Escolar?
-              </h3>
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de eliminación"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <p style={{ color: 'var(--color-text)', fontSize: '14px', marginBottom: '12px' }}>
-                ¿Estás seguro de que deseas eliminar permanentemente la ruta escolar <strong>{routeToDelete?.nombre}</strong>?
-              </p>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-                Esta acción no se puede deshacer y removerá la asignación de ruta de todos los alumnos vinculados.
-              </p>
-            </div>
-
-            <div className="modal-footer">
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="btn-secondary"
-                disabled={submitting}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleDeleteConfirm}
-                className="btn-danger"
-                disabled={submitting}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {submitting ? (
-                  <>
-                    <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
-                  </>
-                ) : (
-                  'Sí, Eliminar Ruta'
-                )}
-              </button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

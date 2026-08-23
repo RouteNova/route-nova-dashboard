@@ -15,9 +15,17 @@ export default function ReportsPage() {
   const [incidentsData, setIncidentsData] = useState([]);
   const [routesHistoryData, setRoutesHistoryData] = useState([]);
 
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Estados de Filtros
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayString());
+  const [endDate, setEndDate] = useState(getTodayString());
   const [routeFilter, setRouteFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
@@ -151,19 +159,23 @@ export default function ReportsPage() {
       rawList = routesHistoryData;
     }
 
+    const todayStr = getTodayString();
+    const queryStartDate = startDate || todayStr;
+    const queryEndDate = endDate || todayStr;
+
     return rawList.filter(row => {
       // 1. Filtro de Fecha Desde
-      if (startDate) {
+      if (queryStartDate) {
         const rowDate = new Date(row.date || row.createdAt || row.startTime);
-        const startLimit = new Date(startDate);
+        const startLimit = new Date(queryStartDate);
         startLimit.setHours(0, 0, 0, 0);
         if (rowDate < startLimit) return false;
       }
 
       // 2. Filtro de Fecha Hasta
-      if (endDate) {
+      if (queryEndDate) {
         const rowDate = new Date(row.date || row.createdAt || row.startTime);
-        const endLimit = new Date(endDate);
+        const endLimit = new Date(queryEndDate);
         endLimit.setHours(23, 59, 59, 999);
         if (rowDate > endLimit) return false;
       }

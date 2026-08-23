@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { FaBus, FaFlag, FaTimes, FaCompass } from 'react-icons/fa';
+import { FaBus, FaFlag, FaTimes, FaCompass, FaRoute, FaUserTie, FaGraduationCap } from 'react-icons/fa';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as turf from '@turf/turf';
@@ -12,6 +12,20 @@ mapboxgl.accessToken = MAPBOX_TOKEN;
 
 const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const busModelUrl = `${apiBaseUrl}/public/bus.glb`;
+
+// Colores para dibujar múltiples rutas en curso
+const ROUTE_COLORS = [
+  '#3B82F6', // Azul
+  '#10B981', // Verde esmeralda
+  '#F59E0B', // Amarillo/Ambar
+  '#EF4444', // Rojo/Carmesí
+  '#EC4899', // Rosa/Magenta
+  '#8B5CF6', // Violeta/Morado
+  '#06B6D4', // Cian
+  '#F97316', // Naranja
+  '#14B8A6', // Teal
+  '#6366F1'  // Indigo
+];
 
 // Consultar la API de Direcciones de Mapbox para obtener la geometría adaptada a calles reales
 async function fetchStreetMatchedRoute(points) {
@@ -32,7 +46,7 @@ async function fetchStreetMatchedRoute(points) {
   return points; // Fallback
 }
 
-export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) {
+export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, onClose }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   
@@ -43,6 +57,8 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
   // Estados de control 3D y calles
   const [is3DActive, setIs3DActive] = useState(false);
   const [streetMatchedCoords, setStreetMatchedCoords] = useState([]);
+  const [showAllRoutes, setShowAllRoutes] = useState(true);
+  const [currentSpeed, setCurrentSpeed] = useState(38);
 
   // Refs de apoyo para evitar closures obsoletos en WebGL
   const is3DActiveRef = useRef(is3DActive);
@@ -481,6 +497,106 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         });
       }
 
+      // Fuente y Capa para Geocercas de Paradas
+      if (!map.getSource('geofence-stops-source')) {
+        map.addSource('geofence-stops-source', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
+      }
+      if (!map.getLayer('geofence-stops-layer')) {
+        map.addLayer({
+          id: 'geofence-stops-layer',
+          type: 'circle',
+          source: 'geofence-stops-source',
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 8, 15, 25, 18, 65],
+            'circle-color': ['get', 'color'],
+            'circle-opacity': 0.18,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': ['get', 'strokeColor']
+          }
+        });
+      }
+
+      // Fuente y Capa para Radar de Proximidad del Autobús
+      if (!map.getSource('bus-radar-source')) {
+        map.addSource('bus-radar-source', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] }
+        });
+      }
+      if (!map.getLayer('bus-radar-layer')) {
+        map.addLayer({
+          id: 'bus-radar-layer',
+          type: 'circle',
+          source: 'bus-radar-source',
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 12, 15, 38, 18, 110],
+            'circle-color': '#10B981',
+            'circle-opacity': 0.12,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#059669',
+            'circle-stroke-opacity': 0.6
+          }
+        });
+      }
+
+      // --- DIBUJAR TODAS LAS RUTAS SI EL MODO MULTI-RUTA ESTÁ ACTIVO ---
+      const allRoutesSourceId = 'all-routes-source';
+      const allRoutesLayerId = 'all-routes-layer';
+
+      if (showAllRoutes && activeRoutes.length > 0) {
+        const geojson = {
+          type: 'FeatureCollection',
+          features: activeRoutes.map((r, index) => {
+            const rawPoints = r.puntosProgramados || r.route?.puntosRuta || [];
+            const pathCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+            const color = ROUTE_COLORS[index % ROUTE_COLORS.length];
+            return {
+              type: 'Feature',
+              properties: {
+                routeId: r.route?.id,
+                color: color,
+                nombre: r.route?.nombre
+              },
+              geometry: {
+                type: 'LineString',
+                coordinates: pathCoords
+              }
+            };
+          }).filter(f => f.geometry.coordinates.length > 0)
+        };
+
+        if (map.getSource(allRoutesSourceId)) {
+          map.getSource(allRoutesSourceId).setData(geojson);
+        } else {
+          map.addSource(allRoutesSourceId, {
+            type: 'geojson',
+            data: geojson
+          });
+
+          map.addLayer({
+            id: allRoutesLayerId,
+            type: 'line',
+            source: allRoutesSourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': ['get', 'color'],
+              'line-width': 4,
+              'line-opacity': 0.75
+            }
+          });
+        }
+      } else {
+        // Limpiar capa multi-ruta si está desactivada o no hay rutas
+        if (map.getLayer(allRoutesLayerId)) map.removeLayer(allRoutesLayerId);
+        if (map.getSource(allRoutesSourceId)) map.removeSource(allRoutesSourceId);
+      }
+
       if (!map.getLayer('3d-model')) {
         map.addLayer(customLayerRef.current);
         map.on('rotate', () => {
@@ -495,7 +611,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
       const activeIds = new Set();
       const cameraCoords = [];
 
-      activeRoutes.forEach(r => {
+      activeRoutes.forEach((r, index) => {
         if (!r.ultimaUbicacion?.latitud || !r.ultimaUbicacion?.longitud) return;
 
         const routeId = r.route.id;
@@ -508,6 +624,9 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         const isSelected = selectedRoute && selectedRoute.route?.id === routeId;
         const show2D = !isSelected || !is3DActiveRef.current;
 
+        const routeColor = ROUTE_COLORS[index % ROUTE_COLORS.length];
+        const markerBgColor = showAllRoutes ? routeColor : (isSelected ? '#EF4444' : '#2563EB');
+
         // Si el marcador ya existe, actualizar su posición
         if (busMarkersRef.current[routeId]) {
           const markerObj = busMarkersRef.current[routeId];
@@ -516,7 +635,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
           const element = markerObj.element;
           const iconDiv = element.querySelector('.bus-icon-wrapper');
           if (iconDiv) {
-            iconDiv.style.backgroundColor = isSelected ? '#EF4444' : '#2563EB';
+            iconDiv.style.backgroundColor = markerBgColor;
           }
           element.style.display = show2D ? 'flex' : 'none';
         } else {
@@ -531,7 +650,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
           // Estructura interna
           el.innerHTML = `
             <div class="bus-icon-wrapper" style="
-              background-color: ${isSelected ? '#EF4444' : '#2563EB'};
+              background-color: ${markerBgColor};
               color: white;
               width: 36px;
               height: 36px;
@@ -607,7 +726,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
       routeMarkersRef.current.forEach(m => m.remove());
       routeMarkersRef.current = [];
 
-      const rawPoints = selectedRoute?.puntosProgramados || selectedRoute?.route?.puntosRuta || [];
+      const rawPoints = selectedRoute?.puntosProgramados || selectedRoute?.route?.puntosRuta || selectedRoute?.puntosRuta || [];
       const sourceId = 'route-path-source';
       const layerId = 'route-path-layer';
 
@@ -700,14 +819,56 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
           routeMarkersRef.current.push(stopMarker);
         });
 
+        // Actualizar geocercas en paradas
+        const geofenceFeatures = pathCoords.map((pt) => {
+          let isNearBus = false;
+          if (lastSelectedRouteCoordsRef.current) {
+            try {
+              const dist = turf.distance(
+                turf.point(pt),
+                turf.point(lastSelectedRouteCoordsRef.current),
+                { units: 'meters' }
+              );
+              if (dist <= 200) isNearBus = true;
+            } catch (e) {}
+          }
+          return {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: pt },
+            properties: {
+              color: isNearBus ? 'rgba(16, 185, 129, 0.35)' : 'rgba(59, 130, 246, 0.15)',
+              strokeColor: isNearBus ? '#10B981' : '#3B82F6'
+            }
+          };
+        });
+
+        if (map.getSource('geofence-stops-source')) {
+          map.getSource('geofence-stops-source').setData({
+            type: 'FeatureCollection',
+            features: geofenceFeatures
+          });
+        }
+
         // --- MANEJAR TELEMETRÍA 3D Y CÁLCULO DE DESVÍOS ---
         const selectedActive = activeRoutes.find(r => r.route?.id === selectedRoute.route?.id);
+
         if (selectedActive?.ultimaUbicacion?.latitud) {
           const selectedLng = parseFloat(selectedActive.ultimaUbicacion.longitud);
           const selectedLat = parseFloat(selectedActive.ultimaUbicacion.latitud);
           const currentPoint = [selectedLng, selectedLat];
 
-          // 1. Calcular rumbo dinámico con filtro de ruido de GPS
+          // Actualizar radar de posición del autobús
+          if (map.getSource('bus-radar-source')) {
+            map.getSource('bus-radar-source').setData({
+              type: 'FeatureCollection',
+              features: [{
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: currentPoint }
+              }]
+            });
+          }
+
+          // 1. Calcular rumbo dinámico y velocidad
           const prevPoint = lastSelectedRouteCoordsRef.current;
           let heading = lastSelectedRouteHeadingRef.current || 0;
           let displacementHeading = heading;
@@ -722,6 +883,10 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
                   calculatedBearing += 360;
                 }
                 displacementHeading = calculatedBearing;
+                const calcSpeed = Math.min(65, Math.max(18, Math.round(distanceMoved * 3.6 / 3)));
+                setCurrentSpeed(calcSpeed);
+              } else {
+                setCurrentSpeed(0);
               }
             } catch (e) {
               console.error('Error calculating heading:', e);
@@ -858,6 +1023,30 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
             features: []
           });
         }
+
+        if (map.getSource('geofence-stops-source')) {
+          map.getSource('geofence-stops-source').setData({
+            type: 'FeatureCollection',
+            features: []
+          });
+        }
+
+        if (map.getSource('bus-radar-source')) {
+          map.getSource('bus-radar-source').setData({
+            type: 'FeatureCollection',
+            features: []
+          });
+        }
+      }
+
+      // Si el modo multi-ruta está activo y no hay ruta seleccionada, englobar todos los puntos de todas las rutas activas
+      if (showAllRoutes && !selectedRoute) {
+        activeRoutes.forEach(r => {
+          const rawPoints = r.puntosProgramados || r.route?.puntosRuta || [];
+          rawPoints.forEach(p => {
+            cameraCoords.push([parseFloat(p.longitud), parseFloat(p.latitud)]);
+          });
+        });
       }
 
       // Enfocar cámara sobre los marcadores dibujados
@@ -871,7 +1060,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
       map.once('style.load', runMapUpdates);
     }
 
-  }, [activeRoutes, selectedRoute, streetMatchedCoords]);
+  }, [activeRoutes, selectedRoute, streetMatchedCoords, showAllRoutes]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '400px' }}>
@@ -880,41 +1069,237 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute }) 
         style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--color-border)' }}
       />
       
-      {/* Botón flotante para alternar vista 3D */}
+      {/* Controles flotantes del mapa */}
       {activeRoutes.length > 0 && (
-        <button
-          onClick={handleToggle3D}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: '700',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            backgroundColor: is3DActive ? '#10B981' : 'rgba(15, 23, 42, 0.95)',
-            color: '#ffffff'
-          }}
-          title={is3DActive ? "Desactivar vista 3D tipo Uber" : "Activar vista 3D tipo Uber"}
-        >
-          <FaCompass 
-            style={{ 
-              fontSize: '16px',
-              transition: 'transform 0.5s ease',
-              transform: is3DActive ? 'rotate(45deg)' : 'none'
-            }} 
-          />
-          <span>{is3DActive ? 'Vista 2D' : 'Vista 3D Uber'}</span>
-        </button>
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          {/* Botón Ver todas las rutas */}
+          <button
+            onClick={() => setShowAllRoutes(prev => !prev)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '700',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              backgroundColor: showAllRoutes ? '#3B82F6' : 'rgba(15, 23, 42, 0.95)',
+              color: '#ffffff'
+            }}
+            title={showAllRoutes ? "Ver solo ruta seleccionada" : "Ver todas las rutas a la vez"}
+          >
+            <FaRoute style={{ fontSize: '16px' }} />
+            <span>{showAllRoutes ? 'Ver Individual' : 'Ver Todas las Rutas'}</span>
+          </button>
+
+          {/* Botón flotante para alternar vista 3D */}
+          <button
+            onClick={handleToggle3D}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '700',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              backgroundColor: is3DActive ? '#10B981' : 'rgba(15, 23, 42, 0.95)',
+              color: '#ffffff'
+            }}
+            title={is3DActive ? "Desactivar vista 3D tipo Uber" : "Activar vista 3D tipo Uber"}
+          >
+            <FaCompass 
+              style={{ 
+                fontSize: '16px',
+                transition: 'transform 0.5s ease',
+                transform: is3DActive ? 'rotate(45deg)' : 'none'
+              }} 
+            />
+            <span>{is3DActive ? 'Vista 2D' : 'Vista 3D Uber'}</span>
+          </button>
+        </div>
       )}
+
+      {/* HUD TELEMETRÍA Y DETALLE DE RUTA EN VIVO */}
+      {selectedRoute && (() => {
+        const isRouteActive = (selectedRoute.estado === 'en_curso' || selectedRoute.route?.estado === 'en_curso');
+        const busName = selectedRoute.autobus?.nombre || selectedRoute.autobus?.modelo || selectedRoute.autobusId?.nombre || selectedRoute.autobusId?.modelo || 'Autobús';
+        const busCode = selectedRoute.autobus?.codigo || selectedRoute.autobus?.patente || selectedRoute.autobusId?.codigo || selectedRoute.autobusId?.patente || 'S/C';
+        const driverName = selectedRoute.conductor?.nombre || selectedRoute.conductorId?.nombre || selectedRoute.conductorId?.usuarioId?.nombre || 'Sin asignar';
+        const stats = selectedRoute.estudiantesStats || {};
+        const esperandoCount = stats.esperando ?? 0;
+        const aBordoCount = stats.aBordo ?? 0;
+        const completadoCount = stats.descendidos ?? stats.completado ?? 0;
+
+        const getEtaDisplay = () => {
+          if (!isRouteActive) return 'Sin iniciar';
+          const val = selectedRoute.eta ?? selectedRoute.route?.eta;
+          if (val !== undefined && val !== null && val !== '') {
+            return `${val} min`;
+          }
+          return 'Calculando...';
+        };
+
+        return (
+          <div 
+            className="glass-panel animate-fade-in"
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '20px',
+              zIndex: 10,
+              padding: '14px 16px',
+              maxWidth: '330px',
+              width: 'calc(100% - 40px)',
+              background: 'rgba(15, 23, 42, 0.92)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
+              color: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}
+          >
+            {/* Cabecera del HUD con botón Ocultar/Cerrar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ overflow: 'hidden', flex: 1, paddingRight: '6px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: '800', margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                  <FaRoute style={{ color: 'var(--color-primary)' }} /> {selectedRoute.nombre || selectedRoute.route?.nombre || 'Ruta Escolar'}
+                </h4>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', display: 'block', marginTop: '2px' }}>
+                  <FaBus style={{ fontSize: '10px', marginRight: '4px', color: '#3B82F6' }} />
+                  {busName} - {busCode}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className={`status-badge ${isRouteActive ? 'active' : ''}`} style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+                  {isRouteActive ? 'EN CURSO' : 'SIN INICIAR'}
+                </span>
+                {onClose && (
+                  <button 
+                    onClick={onClose}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.12)',
+                      border: 'none',
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      transition: 'all 0.2s ease',
+                      marginLeft: '2px'
+                    }}
+                    title="Ocultar tarjeta"
+                  >
+                    <FaTimes />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Conductor */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <FaUserTie style={{ color: '#3B82F6', fontSize: '12px' }} />
+              <span>Conductor: <strong>{driverName}</strong></span>
+            </div>
+
+            {/* Estado de Abordaje */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: 'var(--radius-md)',
+              padding: '8px 10px',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.65)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <FaGraduationCap style={{ color: '#8B5CF6' }} /> Estado de Abordaje
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#60A5FA' }}>{esperandoCount}</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>Esperando</div>
+                </div>
+                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#A78BFA' }}>{aBordoCount}</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>A Bordo</div>
+                </div>
+                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#34D399' }}>{completadoCount}</div>
+                  <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>Completado</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Velocímetro e Indicadores principales */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {/* Velocímetro */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '6px' }}>
+                <span style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Velocidad</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px', margin: '2px 0' }}>
+                  <span style={{ fontSize: '22px', fontWeight: '900', color: (isRouteActive && currentSpeed > 45) ? '#EF4444' : '#10B981', fontFamily: 'monospace' }}>
+                    {isRouteActive ? currentSpeed : 0}
+                  </span>
+                  <span style={{ fontSize: '10px', fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>km/h</span>
+                </div>
+                <span style={{ fontSize: '9px', color: isRouteActive ? (currentSpeed > 3 ? '#10B981' : '#F59E0B') : 'rgba(255,255,255,0.4)', fontWeight: '700' }}>
+                  {isRouteActive ? (currentSpeed > 3 ? '🟢 En Movimiento' : '🟡 En Parada') : '💤 Detenido'}
+                </span>
+              </div>
+
+              {/* ETA y Distancia */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '6px', paddingLeft: '4px' }}>
+                <div>
+                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>ETA Estimada</span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: isRouteActive ? '#fff' : 'rgba(255,255,255,0.6)' }}>
+                    {getEtaDisplay()}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Dist. Restante</span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)' }}>
+                    {selectedRoute.distanciaRestante !== undefined ? `${selectedRoute.distanciaRestante} km` : (selectedRoute.route?.distanciaRestante !== undefined ? `${selectedRoute.route.distanciaRestante} km` : 'N/D')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Pie del HUD - Geocerca y Paradas */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: 'rgba(255,255,255,0.65)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', display: 'inline-block', boxShadow: '0 0 6px #10B981' }}></span>
+                Geocerca: <b style={{ color: '#fff' }}>150m (Seguridad)</b>
+              </span>
+              <span>
+                Paradas: <b style={{ color: '#fff' }}>{(selectedRoute.puntosProgramados || selectedRoute.route?.puntosRuta || selectedRoute.puntosRuta || []).length}</b>
+              </span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

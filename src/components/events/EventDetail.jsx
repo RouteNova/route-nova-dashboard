@@ -19,6 +19,7 @@ import {
   getEventBadgeStyle, 
   getEventIcon 
 } from './EventTable';
+import ModalPortal from '../common/ModalPortal';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiZnJhbmNpc2NvMDgyIiwiYSI6ImNtcWI0eXJkMDBkZm0yc3F5bGNkMDdudW8ifQ.hUD-NrHEMSqRfWiNmJs6hA';
 mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -152,122 +153,124 @@ export default function EventDetail({ event, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 1050 }}>
-      <div className="glass-panel modal-dialog" style={{ maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-        {/* Cabecera */}
-        <div className="modal-header">
-          <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Auditoría de Evento {shortId}
-          </h3>
-          <button onClick={onClose} className="modal-close-btn" aria-label="Cerrar modal de detalle">
-            <FaTimes />
-          </button>
-        </div>
-
-        {/* Cuerpo */}
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
-          
-          {/* Tipo de Evento y Fecha */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center' }}>
-                {getEventIcon(event.type)}
-              </span>
-              <span 
-                style={{
-                  display: 'inline-block',
-                  padding: '4px 12px',
-                  borderRadius: '100px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  ...getEventBadgeStyle(event.type)
-                }}
-              >
-                {translateEventType(event.type)}
-              </span>
-            </div>
-            <span style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '6px', height: '28px' }}>
-              <FaCalendarAlt /> {formatDate(event.createdAt)}
-            </span>
+    <ModalPortal>
+      <div className="modal-overlay" style={{ zIndex: 1050 }}>
+        <div className="glass-panel modal-dialog" style={{ maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+          {/* Cabecera */}
+          <div className="modal-header">
+            <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Auditoría de Evento {shortId}
+            </h3>
+            <button onClick={onClose} className="modal-close-btn" aria-label="Cerrar modal de detalle">
+              <FaTimes />
+            </button>
           </div>
 
-          {/* Mensaje descriptivo */}
-          <div style={{ background: 'rgba(0, 0, 0, 0.01)', padding: '12px', borderRadius: '6px', border: '1px solid var(--color-border)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-            <FaInfoCircle style={{ color: 'var(--color-primary)', fontSize: '14px', marginTop: '3px', flexShrink: 0 }} />
-            <span style={{ fontSize: '13.5px', color: 'var(--color-text)', lineHeight: '1.4' }}>
-              {event.description || 'Evento registrado automáticamente por la aplicación del conductor.'}
-            </span>
-          </div>
-
-          {/* Detalles de Auditoría Especializados */}
-          {renderSpecializedDetails()}
-
-          {/* Conductor y Vehículo */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {/* Conductor */}
-            <div className="glass-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <FaUserTie /> Conductor a Cargo:
-              </span>
-              <span style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--color-text)' }}>
-                {event.driver?.usuarioId?.nombre || 'N/A'}
-              </span>
-              {event.driver?.telefono && (
-                <span style={{ color: 'var(--color-text-secondary)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <FaPhoneAlt /> {event.driver?.telefono}
+          {/* Cuerpo */}
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+            
+            {/* Tipo de Evento y Fecha */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px', display: 'flex', alignItems: 'center' }}>
+                  {getEventIcon(event.type)}
                 </span>
-              )}
+                <span 
+                  style={{
+                    display: 'inline-block',
+                    padding: '4px 12px',
+                    borderRadius: '100px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    ...getEventBadgeStyle(event.type)
+                  }}
+                >
+                  {translateEventType(event.type)}
+                </span>
+              </div>
+              <span style={{ fontSize: '12.5px', color: 'var(--color-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '6px', height: '28px' }}>
+                <FaCalendarAlt /> {formatDate(event.createdAt)}
+              </span>
             </div>
 
-            {/* Vehículo y Ruta */}
-            <div className="glass-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <FaRoute /> Ruta & Autobús:
-              </span>
-              <span style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--color-text)' }}>
-                {event.route?.nombre || 'N/A'}
-              </span>
-              <span style={{ color: 'var(--color-text-secondary)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <FaBus /> Patente: {event.route?.autobusId?.patente || 'N/A'} ({event.route?.autobusId?.modelo || 'N/A'})
+            {/* Mensaje descriptivo */}
+            <div style={{ background: 'rgba(0, 0, 0, 0.01)', padding: '12px', borderRadius: '6px', border: '1px solid var(--color-border)', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <FaInfoCircle style={{ color: 'var(--color-primary)', fontSize: '14px', marginTop: '3px', flexShrink: 0 }} />
+              <span style={{ fontSize: '13.5px', color: 'var(--color-text)', lineHeight: '1.4' }}>
+                {event.description || 'Evento registrado automáticamente por la aplicación del conductor.'}
               </span>
             </div>
+
+            {/* Detalles de Auditoría Especializados */}
+            {renderSpecializedDetails()}
+
+            {/* Conductor y Vehículo */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* Conductor */}
+              <div className="glass-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <FaUserTie /> Conductor a Cargo:
+                </span>
+                <span style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--color-text)' }}>
+                  {event.driver?.usuarioId?.nombre || 'N/A'}
+                </span>
+                {event.driver?.telefono && (
+                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <FaPhoneAlt /> {event.driver?.telefono}
+                  </span>
+                )}
+              </div>
+
+              {/* Vehículo y Ruta */}
+              <div className="glass-panel" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <FaRoute /> Ruta & Autobús:
+                </span>
+                <span style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--color-text)' }}>
+                  {event.route?.nombre || 'N/A'}
+                </span>
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <FaBus /> Patente: {event.route?.autobusId?.patente || 'N/A'} ({event.route?.autobusId?.modelo || 'N/A'})
+                </span>
+              </div>
+            </div>
+
+            {/* Ubicación GPS del Suceso */}
+            {hasLocation ? (
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px', fontWeight: '600' }}>
+                  <FaMapMarkerAlt /> Ubicación GPS en el Mapa:
+                </span>
+                <div 
+                  ref={mapContainerRef} 
+                  style={{ 
+                    width: '100%', 
+                    height: '180px', 
+                    borderRadius: '6px', 
+                    border: '1px solid var(--color-border)',
+                    overflow: 'hidden'
+                  }}
+                />
+                <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginTop: '4px', textAlign: 'right' }}>
+                  Coordenadas: Lat: {event.location?.latitude}, Lng: {event.location?.longitude}
+                </span>
+              </div>
+            ) : (
+              <div style={{ background: 'rgba(0, 0, 0, 0.02)', padding: '10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--color-text-secondary)' }}>
+                📍 <i>Este evento no contiene coordenadas de geolocalización específicas.</i>
+              </div>
+            )}
+
           </div>
 
-          {/* Ubicación GPS del Suceso */}
-          {hasLocation ? (
-            <div>
-              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '6px', fontWeight: '600' }}>
-                <FaMapMarkerAlt /> Ubicación GPS en el Mapa:
-              </span>
-              <div 
-                ref={mapContainerRef} 
-                style={{ 
-                  width: '100%', 
-                  height: '180px', 
-                  borderRadius: '6px', 
-                  border: '1px solid var(--color-border)',
-                  overflow: 'hidden'
-                }}
-              />
-              <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', display: 'block', marginTop: '4px', textAlign: 'right' }}>
-                Coordenadas: Lat: {event.location?.latitude}, Lng: {event.location?.longitude}
-              </span>
-            </div>
-          ) : (
-            <div style={{ background: 'rgba(0, 0, 0, 0.02)', padding: '10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--color-text-secondary)' }}>
-              📍 <i>Este evento no contiene coordenadas de geolocalización específicas.</i>
-            </div>
-          )}
-
-        </div>
-
-        {/* Footer */}
-        <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)' }}>
-          <button onClick={onClose} className="btn-secondary" style={{ padding: '8px 20px' }}>
-            Cerrar
-          </button>
+          {/* Footer */}
+          <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)' }}>
+            <button onClick={onClose} className="btn-secondary" style={{ padding: '8px 20px' }}>
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }

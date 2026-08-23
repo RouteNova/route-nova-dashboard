@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fa';
 import api, { studentService, routeService, userService } from '../services/api';
 import { toast } from 'react-toastify';
+import ModalPortal from '../components/common/ModalPortal';
 
 export default function Estudiantes() {
   // Listas de datos y estados de carga
@@ -175,6 +176,10 @@ export default function Estudiantes() {
     setIsModalOpen(true);
   };
 
+  const selectedParent = parents.find(
+    p => p._id === (typeof formValues.padreId === 'object' ? formValues.padreId?._id : formValues.padreId)
+  ) || (typeof formValues.padreId === 'object' ? formValues.padreId : null);
+
   const filteredParents = parents.filter(p => {
     const term = parentSearchQuery.toLowerCase();
     return (
@@ -241,10 +246,6 @@ export default function Estudiantes() {
 
     if (!formValues.nombre || formValues.nombre.trim() === '') {
       errors.nombre = 'El nombre del estudiante es obligatorio';
-    }
-
-    if (!formValues.padreId) {
-      errors.padreId = 'Debe seleccionar un padre / tutor asignado';
     }
 
     if (!formValues.rutaId) {
@@ -516,373 +517,242 @@ export default function Estudiantes() {
 
       {/* MODAL DE CREACIÓN / EDICIÓN */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog">
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {modalMode === 'create' ? 'Registrar Nuevo Estudiante' : 'Editar Datos de Estudiante'}
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de formulario"
-              >
-                <FaTimes />
-              </button>
-            </div>
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog">
+              <div className="modal-header">
+                <h3 className="modal-title">
+                  {modalMode === 'create' ? 'Registrar Nuevo Estudiante' : 'Editar Datos de Estudiante'}
+                </h3>
+                <button 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de formulario"
+                >
+                  <FaTimes />
+                </button>
+              </div>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <div className="modal-body">
-                {/* Campo Nombre */}
-                <div className="input-group">
-                  <label className="input-label" htmlFor="student-nombre">Nombre Completo del Alumno</label>
-                  <input 
-                    type="text" 
-                    id="student-nombre"
-                    name="nombre"
-                    value={formValues.nombre}
-                    onChange={handleInputChange}
-                    className={`input-field ${formErrors.nombre ? 'error' : ''}`}
-                    placeholder="Ej. Sofía Gómez"
-                    required
-                  />
-                  {formErrors.nombre && (
-                    <span className="field-error-text">{formErrors.nombre}</span>
-                  )}
-                </div>
-
-                {/* Campo Padre/Tutor */}
-                <div className="input-group">
-                  <label className="input-label">Tutor Familiar (Padre)</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div className="modal-body">
+                  {/* Campo Nombre */}
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="student-nombre">Nombre Completo</label>
                     <input 
-                      type="text"
-                      readOnly
-                      value={
-                        formValues.padreId 
-                          ? (parents.find(p => p._id === formValues.padreId)?.nombre || 'Tutor seleccionado')
-                          : ''
-                      }
-                      placeholder="Haga clic en '...' para buscar tutor..."
-                      onClick={() => setIsParentSelectModalOpen(true)}
-                      className={`input-field ${formErrors.padreId ? 'error' : ''}`}
-                      style={{ flex: 1, background: 'rgba(0, 0, 0, 0.02)', cursor: 'pointer' }}
+                      type="text" 
+                      id="student-nombre"
+                      name="nombre"
+                      value={formValues.nombre}
+                      onChange={handleInputChange}
+                      className={`input-field ${formErrors.nombre ? 'error' : ''}`}
+                      placeholder="Ej. Lucas Silva"
                       required
                     />
-                    <button
-                      type="button"
-                      onClick={() => setIsParentSelectModalOpen(true)}
-                      className="btn-secondary"
-                      style={{ padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold' }}
-                      title="Buscar tutor familiar"
-                    >
-                      ...
-                    </button>
-                  </div>
-                  {formErrors.padreId && (
-                    <span className="field-error-text">{formErrors.padreId}</span>
-                  )}
-                </div>
-
-                {/* Campo Ruta */}
-                <div className="input-group">
-                  <label className="input-label" htmlFor="student-ruta">Ruta Escolar Asignada</label>
-                  <select 
-                    id="student-ruta"
-                    name="rutaId"
-                    value={formValues.rutaId}
-                    onChange={handleInputChange}
-                    className={`input-field ${formErrors.rutaId ? 'error' : ''}`}
-                    required
-                  >
-                    {routes.length === 0 ? (
-                      <option value="">No hay rutas creadas en el sistema</option>
-                    ) : (
-                      routes.map(route => (
-                        <option key={route._id} value={route._id}>
-                          {route.nombre}
-                        </option>
-                      ))
+                    {formErrors.nombre && (
+                      <span className="field-error-text">{formErrors.nombre}</span>
                     )}
-                  </select>
-                  {formErrors.rutaId && (
-                    <span className="field-error-text">{formErrors.rutaId}</span>
-                  )}
+                  </div>
+
+                  {/* Campo Código del Estudiante / QR */}
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="student-codigoQR">Código / Identificador del Estudiante (Opcional)</label>
+                    <input 
+                      type="text" 
+                      id="student-codigoQR"
+                      name="codigoQR"
+                      value={formValues.codigoQR}
+                      onChange={handleInputChange}
+                      className={`input-field ${formErrors.codigoQR ? 'error' : ''}`}
+                      placeholder="Ej. EST-1024 (Si se deja vacío, se generará un ID genérico)"
+                    />
+                    <span style={{ fontSize: '11.5px', color: 'var(--color-text-secondary)', marginTop: '4px', display: 'block' }}>
+                      Si no ingresas ningún código, el sistema generará automáticamente un ID genérico único.
+                    </span>
+                    {formErrors.codigoQR && (
+                      <span className="field-error-text">{formErrors.codigoQR}</span>
+                    )}
+                  </div>
+
+                  {/* Campo Ruta Escolar */}
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="student-ruta">Ruta Escolar Asignada (Opcional)</label>
+                    <select 
+                      id="student-ruta"
+                      name="rutaId"
+                      value={formValues.rutaId}
+                      onChange={handleInputChange}
+                      className="input-field"
+                    >
+                      <option value="">-- Ninguna / Sin Asignar --</option>
+                      {routes.map(r => (
+                        <option key={r._id} value={r._id}>{r.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                {/* Campo Código QR manual (Opcional) */}
-                <div className="input-group">
-                  <label className="input-label" htmlFor="student-qr">Código QR o Credencial (Opcional)</label>
-                  <input 
-                    type="text" 
-                    id="student-qr"
-                    name="codigoQR"
-                    value={formValues.codigoQR}
-                    onChange={handleInputChange}
-                    className={`input-field`}
-                    placeholder="Dejar en blanco para auto-generar UUID seguro"
-                  />
-                  <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '4px', display: 'block' }}>
-                    Si no ingresas un valor, el sistema le asignará automáticamente una clave de autenticación única de RouteNova.
-                  </span>
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)}
+                    className="btn-secondary"
+                    disabled={submitting}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn-primary btn-submit"
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Guardando...
+                      </div>
+                    ) : (
+                      modalMode === 'create' ? 'Registrar Alumno' : 'Guardar Cambios'
+                    )}
+                  </button>
                 </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {isDeleteModalOpen && (
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog danger">
+              <div className="modal-header">
+                <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaExclamationTriangle /> ¿Eliminar Alumno?
+                </h3>
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de eliminación"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <p style={{ color: 'var(--color-text)', fontSize: '14px', marginBottom: '12px' }}>
+                  ¿Estás seguro de que deseas eliminar al alumno <strong>{studentToDelete?.nombre}</strong> del sistema?
+                </p>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+                  Esta acción es irreversible y eliminará su código QR activo. El estudiante ya no podrá abordar el transporte.
+                </p>
               </div>
 
               <div className="modal-footer">
                 <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => setIsDeleteModalOpen(false)}
                   className="btn-secondary"
                   disabled={submitting}
                 >
                   Cancelar
                 </button>
                 <button 
-                  type="submit" 
-                  className="btn-primary btn-submit"
+                  onClick={handleDeleteConfirm}
+                  className="btn-danger"
                   disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                   {submitting ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Guardando...
-                    </div>
+                    <>
+                      <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
+                    </>
                   ) : (
-                    modalMode === 'create' ? 'Registrar Alumno' : 'Guardar Cambios'
+                    'Sí, Eliminar Alumno'
                   )}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
-      {isDeleteModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog danger">
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaExclamationTriangle /> ¿Eliminar Alumno?
-              </h3>
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de eliminación"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <p style={{ color: 'var(--color-text)', fontSize: '14px', marginBottom: '12px' }}>
-                ¿Estás seguro de que deseas eliminar al alumno <strong>{studentToDelete?.nombre}</strong> del sistema?
-              </p>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-                Esta acción es irreversible y eliminará su código QR activo. El estudiante ya no podrá abordar el transporte.
-              </p>
-            </div>
-
-            <div className="modal-footer">
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="btn-secondary"
-                disabled={submitting}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleDeleteConfirm}
-                className="btn-danger"
-                disabled={submitting}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {submitting ? (
-                  <>
-                    <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
-                  </>
-                ) : (
-                  'Sí, Eliminar Alumno'
-                )}
-              </button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* MODAL DE VISUALIZACIÓN DE CÓDIGO QR */}
       {isQRModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog" style={{ maxWidth: '400px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaQrcode /> Credencial QR
-              </h3>
-              <button 
-                onClick={handleCloseQRModal} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de código QR"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="modal-body" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-              <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '18px', color: 'var(--color-text)', marginBottom: '4px' }}>
-                {selectedStudent?.nombre}
-              </h4>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
-                Asignado a: {selectedStudent?.rutaId?.nombre || 'Sin Ruta'}
-              </p>
-
-              {/* Contenedor de la Imagen QR */}
-              <div style={{ 
-                width: '240px', 
-                height: '240px', 
-                background: 'white', 
-                borderRadius: 'var(--radius-lg)', 
-                border: '1px solid var(--color-border)',
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                boxShadow: 'var(--shadow-sm)',
-                padding: '16px',
-                position: 'relative',
-                marginBottom: '16px'
-              }}>
-                {qrLoading ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                    <div className="spinner"></div>
-                    <span style={{ color: '#64748B', fontSize: '12px' }}>Generando QR...</span>
-                  </div>
-                ) : (
-                  <img 
-                    src={qrCodeUrl} 
-                    alt={`Código QR de ${selectedStudent?.nombre}`} 
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  />
-                )}
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog" style={{ maxWidth: '400px' }}>
+              <div className="modal-header">
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaQrcode /> Credencial QR
+                </h3>
+                <button 
+                  onClick={handleCloseQRModal} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de código QR"
+                >
+                  <FaTimes />
+                </button>
               </div>
 
-              <div style={{ background: 'rgba(0, 0, 0, 0.03)', padding: '8px 16px', borderRadius: '8px', marginBottom: '24px', maxWidth: '100%' }}>
-                <code style={{ fontSize: '11px', color: 'var(--color-text)', wordBreak: 'break-all', display: 'block' }}>
-                  {selectedStudent?.codigoQR}
-                </code>
-              </div>
-            </div>
+              <div className="modal-body" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+                <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '18px', color: 'var(--color-text)', marginBottom: '4px' }}>
+                  {selectedStudent?.nombre}
+                </h4>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+                  Asignado a: {selectedStudent?.rutaId?.nombre || 'Sin Ruta'}
+                </p>
 
-            <div className="modal-footer" style={{ justifyContent: 'center', paddingTop: 0 }}>
-              <button 
-                onClick={handleDownloadQR}
-                className="btn-primary"
-                style={{ width: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '100px' }}
-                disabled={qrLoading || !qrCodeUrl}
-              >
-                <FaDownload /> Descargar Código QR
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                {/* Contenedor de la Imagen QR */}
+                <div style={{ 
+                  width: '240px', 
+                  height: '240px', 
+                  background: 'white', 
+                  borderRadius: 'var(--radius-lg)', 
+                  border: '1px solid var(--color-border)',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  boxShadow: 'var(--shadow-sm)',
+                  padding: '16px',
+                  position: 'relative',
+                  marginBottom: '16px'
+                }}>
+                  {qrLoading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                      <div className="spinner"></div>
+                      <span style={{ color: '#64748B', fontSize: '12px' }}>Generando QR...</span>
+                    </div>
+                  ) : (
+                    <img 
+                      src={qrCodeUrl} 
+                      alt={`Código QR de ${selectedStudent?.nombre}`} 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                  )}
+                </div>
 
-      {/* MODAL SECUNDARIO DE SELECCIÓN DE TUTOR */}
-      {isParentSelectModalOpen && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="glass-panel modal-dialog" style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaUser /> Seleccionar Tutor Familiar
-              </h3>
-              <button 
-                onClick={() => { setIsParentSelectModalOpen(false); setParentSearchQuery(''); }} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de selección"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              {/* Buscador dentro del modal */}
-              <div className="input-group" style={{ marginBottom: '16px' }}>
-                <div className="search-input-wrapper">
-                  <FaSearch className="search-input-icon" />
-                  <input 
-                    type="text" 
-                    placeholder="Buscar tutor por nombre o correo..." 
-                    value={parentSearchQuery}
-                    onChange={(e) => setParentSearchQuery(e.target.value)}
-                    className="input-field search-input-field"
-                    autoFocus
-                  />
+                <div style={{ background: 'rgba(0, 0, 0, 0.03)', padding: '8px 16px', borderRadius: '8px', marginBottom: '24px', maxWidth: '100%' }}>
+                  <code style={{ fontSize: '11px', color: 'var(--color-text)', wordBreak: 'break-all', display: 'block' }}>
+                    {selectedStudent?.codigoQR}
+                  </code>
                 </div>
               </div>
 
-              {/* Lista scrollable */}
-              <div style={{ 
-                maxHeight: '280px', 
-                overflowY: 'auto', 
-                border: '1px solid var(--color-border)', 
-                borderRadius: 'var(--radius-md)', 
-                background: 'var(--color-input)'
-              }}>
-                {filteredParents.length === 0 ? (
-                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '14px' }}>
-                    No se encontraron tutores coincidentes.
-                  </div>
-                ) : (
-                  <table className="users-table" style={{ width: '100%' }}>
-                    <thead>
-                      <tr style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--color-input)' }}>
-                        <th style={{ padding: '10px 12px', fontSize: '11px' }}>Nombre</th>
-                        <th style={{ padding: '10px 12px', fontSize: '11px' }}>Correo</th>
-                        <th style={{ padding: '10px 12px', fontSize: '11px', textAlign: 'right' }}>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredParents.map((parent) => (
-                        <tr 
-                          key={parent._id}
-                          onDoubleClick={() => handleSelectParent(parent)}
-                          style={{ cursor: 'pointer', transition: 'background 0.15s' }}
-                          title="Doble clic para seleccionar"
-                        >
-                          <td style={{ padding: '10px 12px', fontWeight: '600', fontSize: '13px' }}>
-                            {parent.nombre}
-                          </td>
-                          <td style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                            {parent.correo}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleSelectParent(parent)}
-                              className="btn-secondary"
-                              style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '100px' }}
-                            >
-                              Seleccionar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+              <div className="modal-footer" style={{ justifyContent: 'center', paddingTop: 0 }}>
+                <button 
+                  onClick={handleDownloadQR}
+                  className="btn-primary"
+                  style={{ width: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '100px' }}
+                  disabled={qrLoading || !qrCodeUrl}
+                >
+                  <FaDownload /> Descargar Código QR
+                </button>
               </div>
             </div>
-
-            <div className="modal-footer">
-              <button 
-                type="button" 
-                onClick={() => { setIsParentSelectModalOpen(false); setParentSearchQuery(''); }}
-                className="btn-secondary"
-                style={{ fontSize: '13px', padding: '8px 16px' }}
-              >
-                Cerrar
-              </button>
-            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
+
+
 
     </div>
   );

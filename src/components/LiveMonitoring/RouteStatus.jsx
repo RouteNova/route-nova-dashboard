@@ -1,14 +1,51 @@
-import React from 'react';
-import { FaRoute, FaClock, FaUserTie, FaBus, FaPlayCircle } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaRoute, FaClock, FaUserTie, FaBus, FaPlayCircle, FaPauseCircle, FaList } from 'react-icons/fa';
 
-export default function RouteStatus({ activeRoutes, selectedRouteId, onSelectRoute }) {
-  
+const ROUTE_COLORS = [
+  '#3B82F6', // Azul
+  '#10B981', // Verde esmeralda
+  '#F59E0B', // Amarillo/Ambar
+  '#EF4444', // Rojo/Carmesí
+  '#EC4899', // Rosa/Magenta
+  '#8B5CF6', // Violeta/Morado
+  '#06B6D4', // Cian
+  '#F97316', // Naranja
+  '#14B8A6', // Teal
+  '#6366F1'  // Indigo
+];
+
+export default function RouteStatus({ activeRoutes = [], allRoutes = [], selectedRouteId, onSelectRoute }) {
+  const [tab, setTab] = useState('active'); // 'active' | 'passive' | 'all'
+
   // Calcula el porcentaje de progreso basado en la fase de abordaje/descenso
   const calculateProgress = (stats) => {
     if (!stats || stats.total === 0) return 0;
-    // Otorgamos 0.5 puntos por abordaje y 1 punto por descenso completo
-    const points = (stats.aBordo * 0.5) + stats.descendidos;
+    const points = (stats.aBordo * 0.5) + (stats.descendidos || 0);
     return Math.min(100, Math.round((points / stats.total) * 100));
+  };
+
+  const passiveRoutes = allRoutes.filter(r => r.estado !== 'en_curso');
+
+  let currentList = [];
+  if (tab === 'active') {
+    currentList = activeRoutes;
+  } else if (tab === 'passive') {
+    currentList = passiveRoutes;
+  } else {
+    currentList = allRoutes;
+  }
+
+  const getStatusBadge = (estado) => {
+    switch (estado) {
+      case 'en_curso':
+        return <span className="status-badge active" style={{ fontSize: '11px', padding: '2px 8px' }}>En Vivo</span>;
+      case 'programada':
+        return <span className="status-badge" style={{ fontSize: '11px', padding: '2px 8px', background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', border: '1px solid rgba(59, 130, 246, 0.25)' }}>Programada</span>;
+      case 'finalizada':
+        return <span className="status-badge" style={{ fontSize: '11px', padding: '2px 8px', background: 'rgba(139, 92, 246, 0.12)', color: '#8B5CF6', border: '1px solid rgba(139, 92, 246, 0.25)' }}>Finalizada</span>;
+      default:
+        return <span className="status-badge" style={{ fontSize: '11px', padding: '2px 8px', background: 'rgba(107, 114, 128, 0.12)', color: '#6B7280', border: '1px solid rgba(107, 114, 128, 0.25)' }}>Inactiva</span>;
+    }
   };
 
   return (
@@ -16,37 +53,118 @@ export default function RouteStatus({ activeRoutes, selectedRouteId, onSelectRou
       padding: '20px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '16px',
+      gap: '14px',
       height: '100%',
       minHeight: '350px'
     }}>
-      <h3 style={{ 
-        fontFamily: 'var(--font-heading)', 
-        fontWeight: '800', 
-        fontSize: '17px', 
-        color: 'var(--color-text)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        margin: 0
-      }}>
-        <FaPlayCircle style={{ color: 'var(--color-secondary)' }} /> RUTAS EN CURSO EN VIVO
-      </h3>
+      {/* Cabecera con selector de pestañas */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <h3 style={{ 
+          fontFamily: 'var(--font-heading)', 
+          fontWeight: '800', 
+          fontSize: '16px', 
+          color: 'var(--color-text)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          margin: 0
+        }}>
+          <FaRoute style={{ color: 'var(--color-primary)' }} /> EXPLORADOR DE RUTAS
+        </h3>
 
-      {activeRoutes.length === 0 ? (
+        {/* Pestañas de Filtrado (En Vivo / Pasivas / Todas) */}
+        <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.03)', padding: '4px', borderRadius: '100px', border: '1px solid var(--color-border)' }}>
+          <button
+            type="button"
+            onClick={() => setTab('active')}
+            style={{
+              flex: 1,
+              padding: '6px 8px',
+              borderRadius: '100px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              background: tab === 'active' ? 'var(--color-primary)' : 'transparent',
+              color: tab === 'active' ? '#fff' : 'var(--color-text-secondary)',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <FaPlayCircle /> En Vivo ({activeRoutes.length})
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setTab('passive')}
+            style={{
+              flex: 1,
+              padding: '6px 8px',
+              borderRadius: '100px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              background: tab === 'passive' ? 'var(--color-primary)' : 'transparent',
+              color: tab === 'passive' ? '#fff' : 'var(--color-text-secondary)',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <FaPauseCircle /> Sin Iniciar ({passiveRoutes.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab('all')}
+            style={{
+              flex: 1,
+              padding: '6px 8px',
+              borderRadius: '100px',
+              border: 'none',
+              fontSize: '11.5px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              background: tab === 'all' ? 'var(--color-primary)' : 'transparent',
+              color: tab === 'all' ? '#fff' : 'var(--color-text-secondary)',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            }}
+          >
+            <FaList /> Todas ({allRoutes.length})
+          </button>
+        </div>
+      </div>
+
+      {currentList.length === 0 ? (
         <div style={{
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '40px',
+          padding: '30px 20px',
           textAlign: 'center',
           color: 'var(--color-text-secondary)'
         }}>
           <div style={{ fontSize: '32px', marginBottom: '8px' }}>🚌💤</div>
-          <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-text)', marginBottom: '4px' }}>No hay rutas en curso</h4>
-          <p style={{ fontSize: '12px' }}>Actualmente no hay transportes escolares transmitiendo GPS en tiempo real.</p>
+          <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-text)', marginBottom: '4px' }}>
+            {tab === 'active' ? 'No hay rutas en curso' : 'No hay rutas en esta categoría'}
+          </h4>
+          <p style={{ fontSize: '12px' }}>
+            {tab === 'active' 
+              ? 'Actualmente no hay transportes escolares transmitiendo GPS en tiempo real.' 
+              : 'Selecciona otra pestaña para consultar el mapa y datos de las rutas escolares.'}
+          </p>
         </div>
       ) : (
         <div style={{
@@ -56,19 +174,30 @@ export default function RouteStatus({ activeRoutes, selectedRouteId, onSelectRou
           overflowY: 'auto',
           flex: 1
         }}>
-          {activeRoutes.map((item) => {
-            const isSelected = selectedRouteId === item.route.id;
-            const progress = calculateProgress(item.estudiantesStats);
+          {currentList.map((item, index) => {
+            const routeId = item.route?.id || item.route?._id || item._id;
+            const routeName = item.route?.nombre || item.nombre;
+            const isSelected = selectedRouteId === routeId;
+            const isActive = item.estado === 'en_curso' || item.route?.estado === 'en_curso';
+            const progress = isActive ? calculateProgress(item.estudiantesStats) : 0;
+            const routeColor = ROUTE_COLORS[index % ROUTE_COLORS.length];
+
+            const driverName = item.conductor?.nombre || item.conductorId?.nombre || item.conductorId?.usuarioId?.nombre || 'Sin asignar';
+            const busPlate = item.autobus?.patente || item.autobusId?.patente || 'Sin autobús';
+            const horaSalida = item.route?.horaSalida || item.horaSalida || '--:--';
+            const horaLlegada = item.route?.horaLlegada || item.horaLlegada || '--:--';
+            const puntosCount = (item.puntosRuta || item.puntosProgramados || item.route?.puntosRuta || []).length;
 
             return (
               <div 
-                key={item.route.id}
-                onClick={() => onSelectRoute(item.route.id)}
+                key={routeId}
+                onClick={() => onSelectRoute(routeId)}
                 className="glass-panel"
                 style={{
-                  padding: '16px',
+                  padding: '14px',
                   cursor: 'pointer',
                   border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  borderLeft: `5px solid ${routeColor}`,
                   background: isSelected ? 'rgba(37, 99, 235, 0.03)' : 'var(--color-card)',
                   transition: 'all 0.2s ease',
                   display: 'flex',
@@ -79,63 +208,53 @@ export default function RouteStatus({ activeRoutes, selectedRouteId, onSelectRou
                 {/* Cabecera Ruta */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-text)' }}>
-                    {item.route.nombre}
+                    {routeName}
                   </span>
-                  <span className="status-badge active" style={{ fontSize: '11px', padding: '2px 8px' }}>
-                    En Vivo
-                  </span>
+                  {getStatusBadge(isActive ? 'en_curso' : (item.estado || item.route?.estado || 'programada'))}
                 </div>
 
                 {/* Info básica */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <FaClock /> {item.route.horaSalida} - {item.route.horaLlegada}
+                    <FaClock /> {horaSalida} - {horaLlegada}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <FaBus /> {item.autobus?.patente || 'S/P'}
+                    <FaBus /> {busPlate}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', gridColumn: 'span 2' }}>
-                    <FaUserTie /> Conductor: {item.conductor?.nombre || 'N/A'}
+                    <FaUserTie /> Conductor: {driverName}
                   </span>
+                  {puntosCount > 0 && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', gridColumn: 'span 2', fontSize: '10.5px', color: 'var(--color-text-secondary)' }}>
+                      📍 {puntosCount} paradas / hitos registrados
+                    </span>
+                  )}
                 </div>
 
-                {/* Barra de Progreso */}
-                <div style={{ marginTop: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', marginBottom: '2px' }}>
-                    <span>Progreso del Trayecto</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div style={{ 
-                    width: '100%', 
-                    height: '6px', 
-                    background: 'var(--color-border)', 
-                    borderRadius: '3px',
-                    overflow: 'hidden'
-                  }}>
+                {/* Barra de Progreso sólo si está en curso */}
+                {isActive && item.estudiantesStats && (
+                  <div style={{ marginTop: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', marginBottom: '2px' }}>
+                      <span>Progreso del Trayecto</span>
+                      <span>{progress}%</span>
+                    </div>
                     <div style={{ 
-                      width: `${progress}%`, 
-                      height: '100%', 
-                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                      width: '100%', 
+                      height: '6px', 
+                      background: 'var(--color-border)', 
                       borderRadius: '3px',
-                      transition: 'width 0.4s ease'
-                    }}></div>
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ 
+                        width: `${progress}%`, 
+                        height: '100%', 
+                        background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                        borderRadius: '3px',
+                        transition: 'width 0.4s ease'
+                      }}></div>
+                    </div>
                   </div>
-                </div>
-
-                {/* Pasajeros status resumido */}
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  fontSize: '10px', 
-                  color: 'var(--color-text-secondary)',
-                  borderTop: '1px solid var(--color-border)',
-                  paddingTop: '6px',
-                  marginTop: '2px'
-                }}>
-                  <span>Total: <b>{item.estudiantesStats?.total}</b></span>
-                  <span>A Bordo: <b style={{ color: '#8B5CF6' }}>{item.estudiantesStats?.aBordo}</b></span>
-                  <span>Descendieron: <b style={{ color: 'var(--color-success)' }}>{item.estudiantesStats?.descendidos}</b></span>
-                </div>
+                )}
               </div>
             );
           })}

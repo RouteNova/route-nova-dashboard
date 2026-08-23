@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaSearch, FaMapMarkerAlt, FaBars } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaBars } from 'react-icons/fa';
 import UserMenu from './UserMenu';
 import NotificationBell from '../notifications/NotificationBell';
 
@@ -55,28 +55,6 @@ export default function Navbar({ onToggleSidebar }) {
         <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', fontWeight: '800', margin: 0, color: 'var(--color-text)' }}>
           {getPageTitle()}
         </h1>
-      </div>
-
-      {/* Buscador Global (Mock) */}
-      <div className="navbar-search-container">
-        <FaSearch style={{ position: 'absolute', left: '14px', color: 'var(--color-text-secondary)', fontSize: '14px' }} />
-        <input 
-          type="text" 
-          placeholder="Buscar estudiante, conductor o ruta..." 
-          style={{
-            width: '100%',
-            padding: '10px 16px 10px 38px',
-            borderRadius: '100px',
-            border: '1px solid var(--color-border)',
-            background: 'var(--color-background)',
-            color: 'var(--color-text)',
-            fontFamily: 'var(--font-family)',
-            fontSize: '14px',
-            outline: 'none',
-            transition: 'var(--transition)'
-          }}
-          className="search-bar-input"
-        />
       </div>
 
       {/* Acciones de Cabecera */}

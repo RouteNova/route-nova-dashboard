@@ -244,7 +244,7 @@ export default function DashboardPage() {
               value={totalStudents} 
               icon={<FaGraduationCap />} 
               color="var(--color-primary)"
-              trend={{ text: '+12 nuevos', type: 'up' }}
+              trend={{ text: 'En sistema', type: 'up' }}
             />
             <StatisticCard 
               title="Autobuses en Operación" 

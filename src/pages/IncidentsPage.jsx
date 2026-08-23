@@ -10,17 +10,28 @@ import { incidentService, routeService, authService } from '../services/api';
 import IncidentFilters from '../components/incidents/IncidentFilters';
 import IncidentTable from '../components/incidents/IncidentTable';
 import IncidentDetail from '../components/incidents/IncidentDetail';
+import ModalPortal from '../components/common/ModalPortal';
 
 export default function IncidentsPage() {
   const [dbIncidents, setDbIncidents] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
   const [routeFilter, setRouteFilter] = useState('');
+  const [startDate, setStartDate] = useState(getTodayString());
+  const [endDate, setEndDate] = useState(getTodayString());
 
   // Detalles e Interacciones
   const [selectedIncident, setSelectedIncident] = useState(null);
@@ -131,6 +142,25 @@ export default function IncidentsPage() {
       if (incidentRouteId !== routeFilter) return false;
     }
 
+    // 5. Filtro de Rango de Fechas (Por defecto el día actual si no se seleccionan específicas)
+    const todayStr = getTodayString();
+    const queryStartDate = startDate || todayStr;
+    const queryEndDate = endDate || todayStr;
+
+    if (incident.createdAt) {
+      const incidentDate = new Date(incident.createdAt);
+      if (queryStartDate) {
+        const startLimit = new Date(queryStartDate);
+        startLimit.setHours(0, 0, 0, 0);
+        if (incidentDate < startLimit) return false;
+      }
+      if (queryEndDate) {
+        const endLimit = new Date(queryEndDate);
+        endLimit.setHours(23, 59, 59, 999);
+        if (incidentDate > endLimit) return false;
+      }
+    }
+
     return true;
   });
 
@@ -153,6 +183,10 @@ export default function IncidentsPage() {
         setSeverityFilter={setSeverityFilter}
         routeFilter={routeFilter}
         setRouteFilter={setRouteFilter}
+        startDate={startDate}
+        setStartDate={setStartDate}
+        endDate={endDate}
+        setEndDate={setEndDate}
         routes={routes}
       />
 
@@ -193,55 +227,57 @@ export default function IncidentsPage() {
 
       {/* DIÁLOGO CONFIRMACIÓN ELIMINACIÓN */}
       {isDeleteModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog danger" style={{ maxWidth: '400px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                ¿Eliminar Incidencia?
-              </h3>
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de confirmación"
-              >
-                <FaTimes />
-              </button>
-            </div>
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog danger" style={{ maxWidth: '400px' }}>
+              <div className="modal-header">
+                <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  ¿Eliminar Incidencia?
+                </h3>
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de confirmación"
+                >
+                  <FaTimes />
+                </button>
+              </div>
 
-            <div className="modal-body">
-              <p style={{ color: 'var(--color-text)', fontSize: '14.5px', marginBottom: '12px' }}>
-                ¿Estás seguro de que deseas eliminar permanentemente la incidencia <strong>INC-{(incidentToDelete?._id || incidentToDelete?.id || '').slice(-4).toUpperCase()}</strong>?
-              </p>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-                Esta acción es irreversible y la removerá de las estadísticas de rutas.
-              </p>
-            </div>
+              <div className="modal-body">
+                <p style={{ color: 'var(--color-text)', fontSize: '14.5px', marginBottom: '12px' }}>
+                  ¿Estás seguro de que deseas eliminar permanentemente la incidencia <strong>INC-{(incidentToDelete?._id || incidentToDelete?.id || '').slice(-4).toUpperCase()}</strong>?
+                </p>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+                  Esta acción es irreversible y la removerá de las estadísticas de rutas.
+                </p>
+              </div>
 
-            <div className="modal-footer">
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="btn-secondary"
-                disabled={submittingDelete}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleDeleteConfirm}
-                className="btn-danger"
-                disabled={submittingDelete}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {submittingDelete ? (
-                  <>
-                    <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
-                  </>
-                ) : (
-                  'Sí, Eliminar'
-                )}
-              </button>
+              <div className="modal-footer">
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="btn-secondary"
+                  disabled={submittingDelete}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleDeleteConfirm}
+                  className="btn-danger"
+                  disabled={submittingDelete}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {submittingDelete ? (
+                    <>
+                      <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
+                    </>
+                  ) : (
+                    'Sí, Eliminar'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

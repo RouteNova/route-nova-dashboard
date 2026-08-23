@@ -3,13 +3,13 @@ import { io } from 'socket.io-client';
 import { routeService } from '../services/api';
 import { toast } from 'react-toastify';
 import MapView from '../components/LiveMonitoring/MapView';
-import BusMarker from '../components/LiveMonitoring/BusMarker';
 import RouteStatus from '../components/LiveMonitoring/RouteStatus';
 import IncidentPanel from '../components/LiveMonitoring/IncidentPanel';
 import { FaBroadcastTower, FaSyncAlt } from 'react-icons/fa';
 
 export default function LiveMonitoring() {
   const [activeRoutes, setActiveRoutes] = useState([]);
+  const [allRoutes, setAllRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Ruta seleccionada en detalle
@@ -45,12 +45,17 @@ export default function LiveMonitoring() {
   const fetchActiveRoutes = async () => {
     setLoading(true);
     try {
-      const data = await routeService.getActiveRoutesMonitoring();
-      const list = Array.isArray(data) ? data : [];
+      const [activeData, allData] = await Promise.all([
+        routeService.getActiveRoutesMonitoring(),
+        routeService.getRoutes()
+      ]);
+      const list = Array.isArray(activeData) ? activeData : [];
+      const allList = Array.isArray(allData) ? allData : (allData.routes || []);
       setActiveRoutes(list);
+      setAllRoutes(allList);
       setAllIncidents([]); 
     } catch (err) {
-      console.error('Error fetching active monitoring routes:', err);
+      console.error('Error fetching monitoring routes:', err);
     } finally {
       setLoading(false);
     }
@@ -425,15 +430,8 @@ export default function LiveMonitoring() {
           activeRoutes={activeRoutes}
           selectedRoute={selectedRouteDetails}
           onSelectRoute={handleSelectRoute}
+          onClose={() => { setSelectedRouteId(null); setSelectedRouteDetails(null); }}
         />
-        
-        {/* Card Detalle Flotante */}
-        {selectedRouteDetails && (
-          <BusMarker 
-            selectedRoute={selectedRouteDetails}
-            onClose={() => { setSelectedRouteId(null); setSelectedRouteDetails(null); }}
-          />
-        )}
       </div>
 
       {/* Paneles de Información (Rutas e Incidencias) */}
@@ -447,7 +445,8 @@ export default function LiveMonitoring() {
         {/* Listado de Rutas en Curso */}
         <div style={{ display: 'flex', flexDirection: 'column', height: '420px' }}>
           <RouteStatus 
-            activeRoutes={activeRoutes} 
+            activeRoutes={activeRoutes}
+            allRoutes={allRoutes} 
             selectedRouteId={selectedRouteId} 
             onSelectRoute={handleSelectRoute}
           />
@@ -462,7 +461,7 @@ export default function LiveMonitoring() {
       {/* Event Stream Log Timeline (Eventos Recientes) */}
       <div className="glass-panel animate-fade-in" style={{ padding: '20px' }}>
         <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '15px', color: 'var(--color-text)', marginBottom: '12px' }}>
-          Registro de Eventos en Tiempo Real (Socket.IO Stream)
+          Registro de Eventos en Tiempo Real 
         </h4>
         <div style={{ 
           maxHeight: '120px', 
@@ -478,7 +477,7 @@ export default function LiveMonitoring() {
         }}>
           {eventStream.length === 0 ? (
             <span style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
-              Esperando transmisiones WebSocket de los dispositivos de conductores (abordajes / descensos)...
+              Esperando transmisiones de los dispositivos de conductores (abordajes / descensos)...
             </span>
           ) : (
             eventStream.map(evt => (

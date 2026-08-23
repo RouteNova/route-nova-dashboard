@@ -14,12 +14,20 @@ export default function EventsPage() {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [routeFilter, setRouteFilter] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayString());
+  const [endDate, setEndDate] = useState(getTodayString());
 
   // Detalle seleccionado
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -58,8 +66,12 @@ export default function EventsPage() {
       const params = {};
       if (typeFilter) params.type = typeFilter;
       if (routeFilter) params.routeId = routeFilter;
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
+      
+      // Si no se seleccionan fechas específicas, usar el día en curso
+      const today = getTodayString();
+      params.startDate = startDate || today;
+      params.endDate = endDate || today;
+      
       if (searchQuery.trim() !== '') params.search = searchQuery;
 
       const data = await eventService.getEvents(params);

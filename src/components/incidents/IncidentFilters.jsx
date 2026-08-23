@@ -10,6 +10,10 @@ export default function IncidentFilters({
   setSeverityFilter,
   routeFilter,
   setRouteFilter,
+  startDate,
+  setStartDate,
+  endDate,
+  setEndDate,
   routes = []
 }) {
   return (
@@ -69,6 +73,48 @@ export default function IncidentFilters({
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Rango de Fechas */}
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', borderTop: '1px dashed var(--color-border)', paddingTop: '12px', width: '100%' }}>
+        <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-text-secondary)' }}>
+          Rango de Fechas:
+        </span>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }} htmlFor="start-date-input">Desde:</label>
+          <input 
+            type="date"
+            id="start-date-input"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="input-field"
+            style={{ padding: '6px 12px', height: '34px', fontSize: '13px', width: '140px', margin: 0 }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }} htmlFor="end-date-input">Hasta:</label>
+          <input 
+            type="date"
+            id="end-date-input"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="input-field"
+            style={{ padding: '6px 12px', height: '34px', fontSize: '13px', width: '140px', margin: 0 }}
+          />
+        </div>
+
+        {(startDate || endDate) && (
+          <button
+            type="button"
+            onClick={() => { setStartDate(''); setEndDate(''); }}
+            className="btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '12px', height: '34px' }}
+          >
+            Limpiar Fechas
+          </button>
+        )}
       </div>
     </div>
   );

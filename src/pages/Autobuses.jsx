@@ -11,6 +11,7 @@ import {
 } from 'react-icons/fa';
 import { autobusService } from '../services/api';
 import { toast } from 'react-toastify';
+import ModalPortal from '../components/common/ModalPortal';
 
 export default function Autobuses() {
   const [autobuses, setAutobuses] = useState([]);
@@ -396,175 +397,179 @@ export default function Autobuses() {
 
       {/* MODAL DE CREACIÓN / EDICIÓN */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog" style={{ maxWidth: '450px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {modalMode === 'create' ? 'Registrar Nuevo Autobús' : 'Editar Datos de Autobús'}
-              </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de formulario"
-              >
-                <FaTimes />
-              </button>
-            </div>
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog" style={{ maxWidth: '450px' }}>
+              <div className="modal-header">
+                <h3 className="modal-title">
+                  {modalMode === 'create' ? 'Registrar Nuevo Autobús' : 'Editar Datos de Autobús'}
+                </h3>
+                <button 
+                  onClick={() => setIsModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de formulario"
+                >
+                  <FaTimes />
+                </button>
+              </div>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <div className="modal-body">
-                {/* Campo Patente */}
-                <div className="input-group">
-                  <label className="input-label" htmlFor="bus-patente">Patente / Placa</label>
-                  <input 
-                    type="text" 
-                    id="bus-patente"
-                    name="patente"
-                    value={formValues.patente}
-                    onChange={handleInputChange}
-                    className={`input-field ${formErrors.patente ? 'error' : ''}`}
-                    placeholder="Ej. AB-123-CD"
-                    style={{ textTransform: 'uppercase' }}
-                    required
-                  />
-                  {formErrors.patente && (
-                    <span className="field-error-text">{formErrors.patente}</span>
-                  )}
-                </div>
-
-                {/* Campo Modelo */}
-                <div className="input-group">
-                  <label className="input-label" htmlFor="bus-modelo">Modelo / Descripción</label>
-                  <input 
-                    type="text" 
-                    id="bus-modelo"
-                    name="modelo"
-                    value={formValues.modelo}
-                    onChange={handleInputChange}
-                    className={`input-field ${formErrors.modelo ? 'error' : ''}`}
-                    placeholder="Ej. Mercedes-Benz Sprinter 2024"
-                    required
-                  />
-                  {formErrors.modelo && (
-                    <span className="field-error-text">{formErrors.modelo}</span>
-                  )}
-                </div>
-
-                {/* Campo Capacidad */}
-                <div className="input-group">
-                  <label className="input-label" htmlFor="bus-capacidad">Capacidad de Pasajeros</label>
-                  <input 
-                    type="number" 
-                    id="bus-capacidad"
-                    name="capacidad"
-                    value={formValues.capacidad}
-                    onChange={handleInputChange}
-                    className={`input-field ${formErrors.capacidad ? 'error' : ''}`}
-                    placeholder="Ej. 18"
-                    min="1"
-                    required
-                  />
-                  {formErrors.capacidad && (
-                    <span className="field-error-text">{formErrors.capacidad}</span>
-                  )}
-                </div>
-
-                {/* Estado Activo en Formulario */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-                  <label className="toggle-switch">
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div className="modal-body">
+                  {/* Campo Patente */}
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="bus-patente">Patente / Placa</label>
                     <input 
-                      type="checkbox" 
-                      name="activo"
-                      checked={formValues.activo}
+                      type="text" 
+                      id="bus-patente"
+                      name="patente"
+                      value={formValues.patente}
                       onChange={handleInputChange}
+                      className={`input-field ${formErrors.patente ? 'error' : ''}`}
+                      placeholder="Ej. AB-123-CD"
+                      style={{ textTransform: 'uppercase' }}
+                      required
                     />
-                    <span className="toggle-slider"></span>
-                  </label>
-                  <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--color-text)' }}>
-                    Autobús Activo (Disponible para asignar a rutas)
-                  </span>
+                    {formErrors.patente && (
+                      <span className="field-error-text">{formErrors.patente}</span>
+                    )}
+                  </div>
+
+                  {/* Campo Modelo */}
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="bus-modelo">Modelo / Descripción</label>
+                    <input 
+                      type="text" 
+                      id="bus-modelo"
+                      name="modelo"
+                      value={formValues.modelo}
+                      onChange={handleInputChange}
+                      className={`input-field ${formErrors.modelo ? 'error' : ''}`}
+                      placeholder="Ej. Mercedes-Benz Sprinter 2024"
+                      required
+                    />
+                    {formErrors.modelo && (
+                      <span className="field-error-text">{formErrors.modelo}</span>
+                    )}
+                  </div>
+
+                  {/* Campo Capacidad */}
+                  <div className="input-group">
+                    <label className="input-label" htmlFor="bus-capacidad">Capacidad de Pasajeros</label>
+                    <input 
+                      type="number" 
+                      id="bus-capacidad"
+                      name="capacidad"
+                      value={formValues.capacidad}
+                      onChange={handleInputChange}
+                      className={`input-field ${formErrors.capacidad ? 'error' : ''}`}
+                      placeholder="Ej. 18"
+                      min="1"
+                      required
+                    />
+                    {formErrors.capacidad && (
+                      <span className="field-error-text">{formErrors.capacidad}</span>
+                    )}
+                  </div>
+
+                  {/* Estado Activo en Formulario */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                    <label className="toggle-switch">
+                      <input 
+                        type="checkbox" 
+                        name="activo"
+                        checked={formValues.activo}
+                        onChange={handleInputChange}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--color-text)' }}>
+                      Autobús Activo (Disponible para asignar a rutas)
+                    </span>
+                  </div>
                 </div>
+
+                <div className="modal-footer">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)}
+                    className="btn-secondary"
+                    disabled={submitting}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn-primary btn-submit"
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Guardando...
+                      </div>
+                    ) : (
+                      modalMode === 'create' ? 'Registrar Autobús' : 'Guardar Cambios'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      {isDeleteModalOpen && (
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog danger" style={{ maxWidth: '400px' }}>
+              <div className="modal-header">
+                <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaExclamationTriangle /> ¿Eliminar Autobús?
+                </h3>
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de eliminación"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <p style={{ color: 'var(--color-text)', fontSize: '14px', marginBottom: '12px' }}>
+                  ¿Estás seguro de que deseas eliminar permanentemente el autobús con patente <strong>{autobusToDelete?.patente}</strong> ({autobusToDelete?.modelo})?
+                </p>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+                  Esta acción no se puede deshacer.
+                </p>
               </div>
 
               <div className="modal-footer">
                 <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => setIsDeleteModalOpen(false)}
                   className="btn-secondary"
                   disabled={submitting}
                 >
                   Cancelar
                 </button>
                 <button 
-                  type="submit" 
-                  className="btn-primary btn-submit"
+                  onClick={handleDeleteConfirm}
+                  className="btn-danger"
                   disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                   {submitting ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Guardando...
-                    </div>
+                    <>
+                      <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
+                    </>
                   ) : (
-                    modalMode === 'create' ? 'Registrar Autobús' : 'Guardar Cambios'
+                    'Sí, Eliminar Autobús'
                   )}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
-      {isDeleteModalOpen && (
-        <div className="modal-overlay">
-          <div className="glass-panel modal-dialog danger" style={{ maxWidth: '400px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaExclamationTriangle /> ¿Eliminar Autobús?
-              </h3>
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)} 
-                className="modal-close-btn"
-                aria-label="Cerrar modal de eliminación"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <p style={{ color: 'var(--color-text)', fontSize: '14px', marginBottom: '12px' }}>
-                ¿Estás seguro de que deseas eliminar permanentemente el autobús con patente <strong>{autobusToDelete?.patente}</strong> ({autobusToDelete?.modelo})?
-              </p>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-                Esta acción no se puede deshacer.
-              </p>
-            </div>
-
-            <div className="modal-footer">
-              <button 
-                onClick={() => setIsDeleteModalOpen(false)}
-                className="btn-secondary"
-                disabled={submitting}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleDeleteConfirm}
-                className="btn-danger"
-                disabled={submitting}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {submitting ? (
-                  <>
-                    <FaSyncAlt className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Eliminando...
-                  </>
-                ) : (
-                  'Sí, Eliminar Autobús'
-                )}
-              </button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );
