@@ -17,11 +17,27 @@ const ROUTE_COLORS = [
 export default function RouteStatus({ activeRoutes = [], allRoutes = [], selectedRouteId, onSelectRoute }) {
   const [tab, setTab] = useState('active'); // 'active' | 'passive' | 'all'
 
-  // Calcula el porcentaje de progreso basado en la fase de abordaje/descenso
-  const calculateProgress = (stats) => {
-    if (!stats || stats.total === 0) return 0;
-    const points = (stats.aBordo * 0.5) + (stats.descendidos || 0);
-    return Math.min(100, Math.round((points / stats.total) * 100));
+  // Calcula el porcentaje de progreso basado en la distancia recorrida del trayecto (Punto A -> Punto B)
+  const calculateRouteProgress = (item) => {
+    const distTotal = item.distanciaTotal ?? item.route?.distanciaTotal;
+    const distRestante = item.distanciaRestante ?? item.route?.distanciaRestante;
+
+    if (distTotal && distTotal > 0 && distRestante !== undefined && distRestante !== null) {
+      const traveled = Math.max(0, distTotal - distRestante);
+      const pct = Math.round((traveled / distTotal) * 100);
+      return Math.min(100, Math.max(0, pct));
+    }
+
+    const estado = item.estado || item.route?.estado;
+    if (estado === 'finalizada') return 100;
+
+    // Fallback con estadísticas de estudiantes si aún no se ha calculado telemetría
+    if (item.estudiantesStats && item.estudiantesStats.total > 0) {
+      const points = ((item.estudiantesStats.aBordo || 0) * 0.5) + (item.estudiantesStats.descendidos || 0);
+      return Math.min(100, Math.round((points / item.estudiantesStats.total) * 100));
+    }
+
+    return 0;
   };
 
   const passiveRoutes = allRoutes.filter(r => r.estado !== 'en_curso');
@@ -179,7 +195,7 @@ export default function RouteStatus({ activeRoutes = [], allRoutes = [], selecte
             const routeName = item.route?.nombre || item.nombre;
             const isSelected = selectedRouteId === routeId;
             const isActive = item.estado === 'en_curso' || item.route?.estado === 'en_curso';
-            const progress = isActive ? calculateProgress(item.estudiantesStats) : 0;
+            const progress = isActive ? calculateRouteProgress(item) : (item.estado === 'finalizada' || item.route?.estado === 'finalizada' ? 100 : 0);
             const routeColor = ROUTE_COLORS[index % ROUTE_COLORS.length];
 
             const driverName = item.conductor?.nombre || item.conductorId?.nombre || item.conductorId?.usuarioId?.nombre || 'Sin asignar';
@@ -232,7 +248,7 @@ export default function RouteStatus({ activeRoutes = [], allRoutes = [], selecte
                 </div>
 
                 {/* Barra de Progreso sólo si está en curso */}
-                {isActive && item.estudiantesStats && (
+                {isActive && (
                   <div style={{ marginTop: '4px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', marginBottom: '2px' }}>
                       <span>Progreso del Trayecto</span>

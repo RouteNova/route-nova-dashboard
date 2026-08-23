@@ -58,13 +58,14 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
   const [is3DActive, setIs3DActive] = useState(false);
   const [streetMatchedCoords, setStreetMatchedCoords] = useState([]);
   const [showAllRoutes, setShowAllRoutes] = useState(true);
-  const [currentSpeed, setCurrentSpeed] = useState(38);
+  const [currentSpeed, setCurrentSpeed] = useState(0);
 
   // Refs de apoyo para evitar closures obsoletos en WebGL
   const is3DActiveRef = useRef(is3DActive);
   const lastSelectedRouteCoordsRef = useRef(null);
   const lastSelectedRouteHeadingRef = useRef(0);
   const lastDeviationQueryRef = useRef(null);
+  const lastLocationTimestampRef = useRef(Date.now());
 
   useEffect(() => {
     is3DActiveRef.current = is3DActive;
@@ -868,7 +869,11 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
             });
           }
 
-          // 1. Calcular rumbo dinámico y velocidad
+          // 1. Calcular rumbo dinámico y velocidad real basada en distancia y tiempo
+          const now = Date.now();
+          const timeDeltaSec = (now - lastLocationTimestampRef.current) / 1000;
+          lastLocationTimestampRef.current = now;
+
           const prevPoint = lastSelectedRouteCoordsRef.current;
           let heading = lastSelectedRouteHeadingRef.current || 0;
           let displacementHeading = heading;
@@ -876,20 +881,21 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
             try {
               const p1 = turf.point(prevPoint);
               const p2 = turf.point(currentPoint);
-              const distanceMoved = turf.distance(p1, p2, { units: 'kilometers' }) * 1000;
-              if (distanceMoved > 2) {
+              const distanceMovedMeters = turf.distance(p1, p2, { units: 'kilometers' }) * 1000;
+              if (distanceMovedMeters > 0.2) {
                 let calculatedBearing = turf.bearing(p1, p2);
                 if (calculatedBearing < 0) {
                   calculatedBearing += 360;
                 }
                 displacementHeading = calculatedBearing;
-                const calcSpeed = Math.min(65, Math.max(18, Math.round(distanceMoved * 3.6 / 3)));
+                const effectiveTimeDelta = (timeDeltaSec > 0.05 && timeDeltaSec < 10) ? timeDeltaSec : 0.5;
+                const calcSpeed = Math.round((distanceMovedMeters / effectiveTimeDelta) * 3.6);
                 setCurrentSpeed(calcSpeed);
               } else {
                 setCurrentSpeed(0);
               }
             } catch (e) {
-              console.error('Error calculating heading:', e);
+              console.error('Error calculating heading & speed:', e);
             }
           }
 
@@ -1151,9 +1157,22 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
           if (!isRouteActive) return 'Sin iniciar';
           const val = selectedRoute.eta ?? selectedRoute.route?.eta;
           if (val !== undefined && val !== null && val !== '') {
+            if (val === 0) return '< 1 min';
             return `${val} min`;
           }
           return 'Calculando...';
+        };
+
+        const getDistanceDisplay = () => {
+          const d = selectedRoute.distanciaRestante ?? selectedRoute.route?.distanciaRestante;
+          if (d !== undefined && d !== null && d !== '') {
+            return `${d} km`;
+          }
+          const totalD = selectedRoute.distanciaTotal ?? selectedRoute.route?.distanciaTotal;
+          if (totalD !== undefined && totalD !== null && totalD !== '') {
+            return `${totalD} km`;
+          }
+          return 'N/D';
         };
 
         return (
@@ -1273,7 +1292,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
               {/* ETA y Distancia */}
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '6px', paddingLeft: '4px' }}>
                 <div>
-                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>ETA Estimada</span>
+                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Tiempo Estimado</span>
                   <span style={{ fontSize: '12px', fontWeight: '700', color: isRouteActive ? '#fff' : 'rgba(255,255,255,0.6)' }}>
                     {getEtaDisplay()}
                   </span>
@@ -1281,7 +1300,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
                 <div>
                   <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Dist. Restante</span>
                   <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--color-primary)' }}>
-                    {selectedRoute.distanciaRestante !== undefined ? `${selectedRoute.distanciaRestante} km` : (selectedRoute.route?.distanciaRestante !== undefined ? `${selectedRoute.route.distanciaRestante} km` : 'N/D')}
+                    {getDistanceDisplay()}
                   </span>
                 </div>
               </div>

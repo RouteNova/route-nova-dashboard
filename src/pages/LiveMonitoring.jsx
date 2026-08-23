@@ -156,15 +156,22 @@ export default function LiveMonitoring() {
 
     // Escuchar actualizaciones de ubicación GPS
     socket.on('location_updated', (data) => {
-      const { routeId, latitud, longitud, eta } = data;
+      const { routeId, latitud, longitud, eta, distanciaRestante } = data;
 
       // Actualizar posición del bus en la lista local de rutas activas
       setActiveRoutes(prev => prev.map(r => {
-        if (r.route?.id === routeId) {
+        const rId = r.route?.id || r.route?._id || r._id || r.id;
+        if (rId === routeId) {
           return {
             ...r,
             ultimaUbicacion: { latitud, longitud, fechaHora: new Date().toISOString() },
-            route: { ...r.route, eta }
+            eta: eta !== undefined ? eta : r.eta,
+            distanciaRestante: distanciaRestante !== undefined ? distanciaRestante : r.distanciaRestante,
+            route: { 
+              ...r.route, 
+              eta: eta !== undefined ? eta : r.route?.eta,
+              distanciaRestante: distanciaRestante !== undefined ? distanciaRestante : r.route?.distanciaRestante
+            }
           };
         }
         return r;
@@ -178,7 +185,13 @@ export default function LiveMonitoring() {
             return {
               ...prev,
               ultimaUbicacion: { latitud, longitud, fechaHora: new Date().toISOString() },
-              route: { ...prev.route, eta }
+              eta: eta !== undefined ? eta : prev.eta,
+              distanciaRestante: distanciaRestante !== undefined ? distanciaRestante : prev.distanciaRestante,
+              route: { 
+                ...prev.route, 
+                eta: eta !== undefined ? eta : prev.route?.eta,
+                distanciaRestante: distanciaRestante !== undefined ? distanciaRestante : prev.route?.distanciaRestante
+              }
             };
           });
         }
@@ -383,6 +396,14 @@ export default function LiveMonitoring() {
     setSelectedRouteId(routeId);
     setDetailsLoading(true);
     try {
+      if (socketRef.current && !activeRouteIdsRef.current.has(routeId)) {
+        socketRef.current.emit('join_route', { routeId }, (res) => {
+          if (res && res.status === 'ok') {
+            activeRouteIdsRef.current.add(routeId);
+            console.log(`Unido a la sala de la ruta seleccionada: ${routeId}`);
+          }
+        });
+      }
       const details = await routeService.getRouteMonitoring(routeId);
       setSelectedRouteDetails(details);
       
