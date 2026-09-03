@@ -11,13 +11,17 @@ import {
   FaMapMarkerAlt,
   FaClock,
   FaUserTie,
-  FaBus
+  FaBus,
+  FaGraduationCap
 } from 'react-icons/fa';
-import { routeService, conductorService, autobusService } from '../services/api';
+import { routeService, conductorService, autobusService, studentService } from '../services/api';
 import { toast } from 'react-toastify';
 import ModalPortal from '../components/common/ModalPortal';
+import Pagination from '../components/common/Pagination';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+
+const ITEMS_PER_PAGE = 20;
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiZnJhbmNpc2NvMDgyIiwiYSI6ImNtcWI0eXJkMDBkZm0yc3F5bGNkMDdudW8ifQ.hUD-NrHEMSqRfWiNmJs6hA';
 mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -66,10 +70,18 @@ async function fetchStreetMatchedRoute(points) {
 export default function Rutas() {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
   
-  // Catálogos para formularios
+  // Catálogos para formularios y visualización
   const [conductors, setConductors] = useState([]);
   const [autobuses, setAutobuses] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+
+  // Modal de Alumnos Asignados a la Ruta
+  const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
+  const [selectedRouteStudents, setSelectedRouteStudents] = useState(null);
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,16 +123,62 @@ export default function Rutas() {
   useEffect(() => {
     if (!isModalOpen || !mapContainerRef.current) return;
 
+    const renderRouteMarkers = (mapInstance) => {
+      const targetMap = mapInstance || mapInstanceRef.current;
+      if (!targetMap) return;
+
+      // 1. Eliminar marcadores anteriores
+      routeMarkersRef.current.forEach(m => m.remove());
+      routeMarkersRef.current = [];
+
+      const points = formValues.puntosRuta || [];
+      const sourceId = 'form-route-source';
+      const layerId = 'form-route-layer';
+
+      // Asegurar que no existe la capa ni fuente de la línea azul
+      if (targetMap.getLayer && targetMap.getLayer(layerId)) targetMap.removeLayer(layerId);
+      if (targetMap.getSource && targetMap.getSource(sourceId)) targetMap.removeSource(sourceId);
+
+      // 2. Dibujar marcadores circulares numerados (círculos verde, amarillo, rojo con número)
+      points.forEach((pt, idx) => {
+        const el = document.createElement('div');
+        el.style.width = '24px';
+        el.style.height = '24px';
+        el.style.borderRadius = '50%';
+        el.style.background = idx === 0 ? '#22C55E' : idx === points.length - 1 ? '#EF4444' : '#F59E0B';
+        el.style.border = '2px solid white';
+        el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.4)';
+        el.style.color = 'white';
+        el.style.fontSize = '11px';
+        el.style.fontWeight = '800';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.cursor = 'pointer';
+        el.innerHTML = (idx + 1).toString();
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([parseFloat(pt.longitud), parseFloat(pt.latitud)])
+          .addTo(targetMap);
+
+        routeMarkersRef.current.push(marker);
+      });
+    };
+
     // Inicializar mapa
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12', // Estilo de calles para trazar la ruta con precisión
-      center: [-69.931, 18.486], // Centro por defecto (Santo Domingo)
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [-71.1802, 18.3847], // Vicente Noble, Barahona
       zoom: 12,
       attributionControl: false
     });
 
     mapInstanceRef.current = map;
+
+    map.on('load', () => {
+      renderRouteMarkers(map);
+    });
 
     // Si ya existen puntos cargados (en caso de edición), centrar la cámara del mapa
     if (formValues.puntosRuta && formValues.puntosRuta.length > 0) {
@@ -154,7 +212,7 @@ export default function Rutas() {
     };
   }, [isModalOpen]);
 
-  // Actualizar la polilínea y los marcadores del mapa cuando cambien los puntos de ruta en el estado
+  // Actualizar la polilínea optimizada y los marcadores del mapa cuando cambien los puntos de ruta en el estado
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -166,19 +224,16 @@ export default function Rutas() {
       routeMarkersRef.current.forEach(m => m.remove());
       routeMarkersRef.current = [];
 
-      const points = formValues.puntosRuta;
-      const pathCoords = points.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+      const points = formValues.puntosRuta || [];
       const sourceId = 'form-route-source';
       const layerId = 'form-route-layer';
 
-      // 2. Dibujar o actualizar línea del trayecto
-      if (pathCoords.length > 0) {
-        let lineCoords = pathCoords;
-        if (pathCoords.length >= 2) {
-          const matched = await fetchStreetMatchedRoute(points);
-          if (isSubscribed && matched && matched.length > 0) {
-            lineCoords = matched;
-          }
+      // 2. Dibujar o actualizar la línea del trayecto optimizado en calles reales
+      if (points.length >= 2) {
+        let lineCoords = points.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+        const matched = await fetchStreetMatchedRoute(points);
+        if (isSubscribed && matched && matched.length > 0) {
+          lineCoords = matched;
         }
 
         if (!isSubscribed) return;
@@ -207,42 +262,41 @@ export default function Rutas() {
               'line-cap': 'round'
             },
             paint: {
-              'line-color': '#2563EB', // Azul
+              'line-color': '#2563EB', // Azul optimizado
               'line-width': 5,
               'line-opacity': 0.85
             }
           });
         }
-
-        // 3. Agregar marcadores numerados con colores interactivos
-        points.forEach((pt, idx) => {
-          const el = document.createElement('div');
-          el.style.width = '24px';
-          el.style.height = '24px';
-          el.style.borderRadius = '50%';
-          el.style.background = idx === 0 ? '#22C55E' : idx === points.length - 1 ? '#EF4444' : '#F59E0B';
-          el.style.border = '2px solid white';
-          el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.4)';
-          el.style.color = 'white';
-          el.style.fontSize = '10px';
-          el.style.fontWeight = '800';
-          el.style.display = 'flex';
-          el.style.alignItems = 'center';
-          el.style.justifyContent = 'center';
-          el.style.cursor = 'pointer';
-          el.innerHTML = (idx + 1).toString();
-
-          const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-            .setLngLat([parseFloat(pt.longitud), parseFloat(pt.latitud)])
-            .addTo(map);
-
-          routeMarkersRef.current.push(marker);
-        });
       } else {
-        // Remover capa si la lista se vacía
-        if (map.getLayer(layerId)) map.removeLayer(layerId);
-        if (map.getSource(sourceId)) map.removeSource(sourceId);
+        if (map.getLayer && map.getLayer(layerId)) map.removeLayer(layerId);
+        if (map.getSource && map.getSource(sourceId)) map.removeSource(sourceId);
       }
+
+      // 3. Dibujar marcadores circulares numerados en cada punto de control
+      points.forEach((pt, idx) => {
+        const el = document.createElement('div');
+        el.style.width = '24px';
+        el.style.height = '24px';
+        el.style.borderRadius = '50%';
+        el.style.background = idx === 0 ? '#22C55E' : idx === points.length - 1 ? '#EF4444' : '#F59E0B';
+        el.style.border = '2px solid white';
+        el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.4)';
+        el.style.color = 'white';
+        el.style.fontSize = '11px';
+        el.style.fontWeight = '800';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.cursor = 'pointer';
+        el.innerHTML = (idx + 1).toString();
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([parseFloat(pt.longitud), parseFloat(pt.latitud)])
+          .addTo(map);
+
+        routeMarkersRef.current.push(marker);
+      });
     };
 
     if (map.isStyleLoaded()) {
@@ -258,12 +312,19 @@ export default function Rutas() {
 
   // Cargar rutas con debounce para búsqueda
   useEffect(() => {
+    setCurrentPage(1);
     const delayDebounceFn = setTimeout(() => {
       fetchRoutes();
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, statusFilter]);
+
+  const totalPages = Math.ceil(routes.length / ITEMS_PER_PAGE);
+  const paginatedRoutes = routes.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   // Cargar catálogos de conductores y autobuses al iniciar
   useEffect(() => {
@@ -302,9 +363,36 @@ export default function Rutas() {
       const busesData = await autobusService.getAutobuses();
       const busesList = Array.isArray(busesData) ? busesData : [];
       setAutobuses(busesList);
+
+      // Obtener estudiantes para contar/listar asignaciones por ruta
+      const studentsData = await studentService.getStudents();
+      const studentsList = Array.isArray(studentsData) ? studentsData : (studentsData.students || studentsData.data || []);
+      setAllStudents(studentsList);
     } catch (err) {
       console.error('Error loading route form catalogs:', err);
     }
+  };
+
+  const getStudentsForRoute = (routeId) => {
+    if (!routeId) return [];
+    return allStudents.filter(s => {
+      const rId = s.rutaId?._id || s.rutaId;
+      return String(rId) === String(routeId);
+    });
+  };
+
+  const handleOpenRouteStudentsModal = (route) => {
+    setSelectedRouteStudents(route);
+    setIsStudentsModalOpen(true);
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'E';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
   // Abrir modal de creación
@@ -567,6 +655,22 @@ export default function Rutas() {
         </div>
       ) : (
         <>
+          {/* Indicador de Cantidad de Registros */}
+          <div className="records-counter-indicator animate-fade-in">
+            <div className="records-counter-left">
+              <span>Total de registros:</span>
+              <span className="records-counter-badge">{routes.length}</span>
+              <span className="records-counter-text">
+                {routes.length === 1 ? 'Ruta escolar registrada' : 'Rutas escolares registradas'}
+              </span>
+            </div>
+            {(searchQuery || statusFilter) && (
+              <span className="records-counter-filter-info">
+                Filtrado por criterios de búsqueda
+              </span>
+            )}
+          </div>
+
           {/* TABLA DE ESCRITORIO (resoluciones > 768px por CSS) */}
           <div className="glass-panel users-table-container animate-fade-in">
             <table className="users-table">
@@ -576,13 +680,13 @@ export default function Rutas() {
                   <th>Horario (Salida / Regreso)</th>
                   <th>Conductor Asignado</th>
                   <th>Autobús Asignado</th>
-                  <th>Puntos GPS</th>
+                  <th style={{ textAlign: 'center' }}>Alumnos</th>
                   <th style={{ textAlign: 'center' }}>Estado</th>
                   <th style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {routes.map((route) => (
+                {paginatedRoutes.map((route) => (
                   <tr key={route._id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -609,10 +713,15 @@ export default function Rutas() {
                         <FaBus style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }} /> {route.autobusId?.patente || 'Sin bus'} ({route.autobusId?.modelo || 'N/A'})
                       </span>
                     </td>
-                    <td style={{ fontWeight: '500' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                        <FaMapMarkerAlt style={{ color: 'var(--color-primary)', fontSize: '12px' }} /> {route.puntosRuta?.length || 0} puntos
-                      </span>
+                    <td style={{ textAlign: 'center' }}>
+                      <button 
+                        onClick={() => handleOpenRouteStudentsModal(route)}
+                        className="btn-secondary"
+                        style={{ padding: '6px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', borderRadius: '100px', whiteSpace: 'nowrap' }}
+                        title="Ver alumnos asignados a la ruta"
+                      >
+                        <FaGraduationCap /> {getStudentsForRoute(route._id).length} Alumnos
+                      </button>
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <span className={getStatusBadgeClass(route.estado)} style={{ minWidth: '90px', justifyContent: 'center' }}>
@@ -647,7 +756,7 @@ export default function Rutas() {
 
           {/* TARJETAS DE MÓVIL/TABLET (resoluciones <= 768px por CSS) */}
           <div className="users-cards-grid animate-fade-in">
-            {routes.map((route) => (
+            {paginatedRoutes.map((route) => (
               <div className="glass-panel user-card" key={route._id}>
                 <div className="user-card-header">
                   <div className="user-card-avatar">
@@ -677,8 +786,14 @@ export default function Rutas() {
                 </div>
 
                 <div className="user-card-details">
-                  <span>Puntos GPS:</span>
-                  <span>{route.puntosRuta?.length || 0} puntos</span>
+                  <span>Alumnos:</span>
+                  <button 
+                    onClick={() => handleOpenRouteStudentsModal(route)}
+                    className="btn-secondary"
+                    style={{ padding: '6px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', borderRadius: '100px', whiteSpace: 'nowrap' }}
+                  >
+                    <FaGraduationCap /> {getStudentsForRoute(route._id).length} Alumnos
+                  </button>
                 </div>
 
                 <div className="user-card-actions">
@@ -702,6 +817,15 @@ export default function Rutas() {
               </div>
             ))}
           </div>
+
+          {/* Componente de Paginación */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={routes.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </>
       )}
 
@@ -1032,6 +1156,101 @@ export default function Rutas() {
                   ) : (
                     'Sí, Eliminar Ruta'
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL DE ALUMNOS ASIGNADOS A LA RUTA */}
+      {isStudentsModalOpen && selectedRouteStudents && (
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="glass-panel modal-dialog" style={{ maxWidth: '640px' }}>
+              <div className="modal-header">
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaGraduationCap style={{ color: 'var(--color-primary)' }} /> Alumnos Asignados - {selectedRouteStudents.nombre}
+                </h3>
+                <button 
+                  onClick={() => setIsStudentsModalOpen(false)} 
+                  className="modal-close-btn"
+                  aria-label="Cerrar modal de alumnos"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(37, 99, 235, 0.06)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(37, 99, 235, 0.15)' }}>
+                  <div>
+                    <div style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-text)' }}>
+                      Total: {getStudentsForRoute(selectedRouteStudents._id).length} Estudiantes
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                      Estudiantes registrados en esta ruta escolar
+                    </div>
+                  </div>
+                  <span className="role-badge conductor" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <FaRoute /> {selectedRouteStudents.nombre}
+                  </span>
+                </div>
+
+                {getStudentsForRoute(selectedRouteStudents._id).length === 0 ? (
+                  <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>🎓</div>
+                    <h4 style={{ color: 'var(--color-text)', fontWeight: '700', fontSize: '15px', marginBottom: '4px' }}>Sin alumnos asignados</h4>
+                    <p style={{ fontSize: '13px', margin: 0 }}>No hay estudiantes registrados en esta ruta escolar actualmente.</p>
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: '380px', overflowY: 'auto', paddingRight: '4px' }}>
+                    <div className="users-table-container" style={{ background: 'transparent', border: '1px solid var(--color-border)' }}>
+                      <table className="users-table" style={{ fontSize: '13px' }}>
+                        <thead>
+                          <tr>
+                            <th>Estudiante</th>
+                            <th>Tutor / Padre</th>
+                            <th>Correo de Contacto</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getStudentsForRoute(selectedRouteStudents._id).map((student) => (
+                            <tr key={student._id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <div className="avatar-circle" style={{ width: '32px', height: '32px', fontSize: '12px' }}>
+                                    {getInitials(student.nombre)}
+                                  </div>
+                                  <div style={{ fontWeight: '600', color: 'var(--color-text)' }}>
+                                    {student.nombre}
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: '500' }}>{student.padreId?.nombre || 'No asignado'}</div>
+                              </td>
+                              <td>
+                                <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+                                  {student.padreId?.correo || 'Sin correo'}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsStudentsModalOpen(false)}
+                  className="btn-secondary"
+                  style={{ padding: '8px 20px' }}
+                >
+                  Cerrar
                 </button>
               </div>
             </div>

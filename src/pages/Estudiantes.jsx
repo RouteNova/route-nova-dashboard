@@ -15,6 +15,9 @@ import {
 import api, { studentService, routeService, userService } from '../services/api';
 import { toast } from 'react-toastify';
 import ModalPortal from '../components/common/ModalPortal';
+import Pagination from '../components/common/Pagination';
+
+const ITEMS_PER_PAGE = 20;
 
 export default function Estudiantes() {
   // Listas de datos y estados de carga
@@ -22,6 +25,9 @@ export default function Estudiantes() {
   const [parents, setParents] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filtros de búsqueda
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,12 +69,19 @@ export default function Estudiantes() {
 
   // Cargar estudiantes cuando cambian los filtros (con debounce en búsqueda)
   useEffect(() => {
+    setCurrentPage(1);
     const delayDebounceFn = setTimeout(() => {
       fetchStudents();
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, routeFilter]);
+
+  const totalPages = Math.ceil(students.length / ITEMS_PER_PAGE);
+  const paginatedStudents = students.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -378,6 +391,22 @@ export default function Estudiantes() {
         </div>
       ) : (
         <>
+          {/* Indicador de Cantidad de Registros */}
+          <div className="records-counter-indicator animate-fade-in">
+            <div className="records-counter-left">
+              <span>Total de registros:</span>
+              <span className="records-counter-badge">{students.length}</span>
+              <span className="records-counter-text">
+                {students.length === 1 ? 'Estudiante registrado' : 'Estudiantes registrados'}
+              </span>
+            </div>
+            {(searchQuery || routeFilter) && (
+              <span className="records-counter-filter-info">
+                Filtrado por criterios de búsqueda
+              </span>
+            )}
+          </div>
+
           {/* TABLA DE ESCRITORIO (Visible en resoluciones > 768px por CSS) */}
           <div className="glass-panel users-table-container animate-fade-in">
             <table className="users-table">
@@ -391,7 +420,7 @@ export default function Estudiantes() {
                 </tr>
               </thead>
               <tbody>
-                {students.map((student) => (
+                {paginatedStudents.map((student) => (
                   <tr key={student._id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -452,7 +481,7 @@ export default function Estudiantes() {
 
           {/* TARJETAS DE MÓVIL/TABLET (Visible en resoluciones <= 768px por CSS) */}
           <div className="users-cards-grid animate-fade-in">
-            {students.map((student) => (
+            {paginatedStudents.map((student) => (
               <div className="glass-panel user-card" key={student._id}>
                 <div className="user-card-header">
                   <div className="user-card-avatar">
@@ -512,6 +541,15 @@ export default function Estudiantes() {
               </div>
             ))}
           </div>
+
+          {/* Componente de Paginación */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={students.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </>
       )}
 

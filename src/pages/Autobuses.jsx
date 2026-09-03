@@ -12,11 +12,17 @@ import {
 import { autobusService } from '../services/api';
 import { toast } from 'react-toastify';
 import ModalPortal from '../components/common/ModalPortal';
+import Pagination from '../components/common/Pagination';
+
+const ITEMS_PER_PAGE = 20;
 
 export default function Autobuses() {
   const [autobuses, setAutobuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modales
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,12 +45,19 @@ export default function Autobuses() {
 
   // Cargar autobuses con debounce para búsqueda
   useEffect(() => {
+    setCurrentPage(1);
     const delayDebounceFn = setTimeout(() => {
       fetchAutobuses();
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
+
+  const totalPages = Math.ceil(autobuses.length / ITEMS_PER_PAGE);
+  const paginatedAutobuses = autobuses.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const fetchAutobuses = async () => {
     setLoading(true);
@@ -263,6 +276,22 @@ export default function Autobuses() {
         </div>
       ) : (
         <>
+          {/* Indicador de Cantidad de Registros */}
+          <div className="records-counter-indicator animate-fade-in">
+            <div className="records-counter-left">
+              <span>Total de registros:</span>
+              <span className="records-counter-badge">{autobuses.length}</span>
+              <span className="records-counter-text">
+                {autobuses.length === 1 ? 'Autobús registrado' : 'Autobuses registrados'}
+              </span>
+            </div>
+            {searchQuery && (
+              <span className="records-counter-filter-info">
+                Filtrado por texto de búsqueda
+              </span>
+            )}
+          </div>
+
           {/* TABLA DE ESCRITORIO (resoluciones > 768px por CSS) */}
           <div className="glass-panel users-table-container animate-fade-in">
             <table className="users-table">
@@ -276,7 +305,7 @@ export default function Autobuses() {
                 </tr>
               </thead>
               <tbody>
-                {autobuses.map((bus) => (
+                {paginatedAutobuses.map((bus) => (
                   <tr key={bus._id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -334,7 +363,7 @@ export default function Autobuses() {
 
           {/* TARJETAS DE MÓVIL/TABLET (resoluciones <= 768px por CSS) */}
           <div className="users-cards-grid animate-fade-in">
-            {autobuses.map((bus) => (
+            {paginatedAutobuses.map((bus) => (
               <div className="glass-panel user-card" key={bus._id}>
                 <div className="user-card-header">
                   <div className="user-card-avatar">
@@ -392,6 +421,15 @@ export default function Autobuses() {
               </div>
             ))}
           </div>
+
+          {/* Componente de Paginación */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={autobuses.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </>
       )}
 

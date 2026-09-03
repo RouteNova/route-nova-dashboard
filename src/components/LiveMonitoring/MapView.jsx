@@ -34,7 +34,7 @@ async function fetchStreetMatchedRoute(points) {
     const slicePoints = points.slice(0, 25);
     const waypoints = slicePoints.map(p => p.join(',')).join(';');
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-    
+
     const response = await fetch(url);
     const data = await response.json();
     if (data.routes && data.routes.length > 0) {
@@ -46,10 +46,10 @@ async function fetchStreetMatchedRoute(points) {
   return points; // Fallback
 }
 
-export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, onClose }) {
+export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, onClose, onOpenStudents }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  
+
   // Guardamos referencias para marcadores y capas para actualizarlos dinámicamente
   const busMarkersRef = useRef({});
   const routeMarkersRef = useRef([]);
@@ -83,32 +83,79 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
     }
   }, [selectedRoute]);
 
-  // Consultar streets matching cuando cambie la ruta seleccionada
+  const streetRouteCacheRef = useRef({});
+  const selectedRouteIdStr = selectedRoute?.route?.id || selectedRoute?.route?._id || selectedRoute?._id || selectedRoute?.id;
+
+  // Consultar streets matching cuando cambie la ruta seleccionada con caché persistente
   useEffect(() => {
-    if (!selectedRoute) {
+    if (!selectedRoute || !selectedRouteIdStr) {
       setStreetMatchedCoords([]);
       return;
     }
-    const rawPoints = selectedRoute.puntosProgramados || selectedRoute.route?.puntosRuta || [];
-    if (rawPoints.length < 2) {
-      setStreetMatchedCoords(rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]));
+
+    // 1. Si ya tenemos en caché las coordenadas por carretera para esta ruta, usarlas instantáneamente
+    if (streetRouteCacheRef.current[selectedRouteIdStr]) {
+      setStreetMatchedCoords(streetRouteCacheRef.current[selectedRouteIdStr]);
       return;
     }
-    
+
+    const rawPoints = selectedRoute.puntosProgramados || selectedRoute.route?.puntosRuta || selectedRoute.puntosRuta || [];
+    if (rawPoints.length < 2) {
+      const simpleCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+      setStreetMatchedCoords(simpleCoords);
+      return;
+    }
+
     let isSubscribed = true;
     const fetchCoords = async () => {
       const pathCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
       const matched = await fetchStreetMatchedRoute(pathCoords);
-      if (isSubscribed) {
-        setStreetMatchedCoords(matched);
+      if (matched && matched.length > 0) {
+        streetRouteCacheRef.current[selectedRouteIdStr] = matched;
+        if (isSubscribed) {
+          setStreetMatchedCoords(matched);
+        }
       }
     };
-    
+
     fetchCoords();
     return () => {
       isSubscribed = false;
     };
-  }, [selectedRoute?.route?.id]);
+  }, [selectedRouteIdStr]);
+
+  const lastFocusedRouteIdRef = useRef(null);
+
+  // Efecto para realizar el acercamiento y foco automático sobre el autobús al seleccionar una ruta
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedRouteIdStr) {
+      lastFocusedRouteIdRef.current = null;
+      return;
+    }
+
+    const activeRouteObj = activeRoutes.find(r => {
+      const id = r.route?.id || r.route?._id || r._id || r.id;
+      return id === selectedRouteIdStr;
+    });
+
+    if (activeRouteObj?.ultimaUbicacion?.latitud && activeRouteObj?.ultimaUbicacion?.longitud) {
+      const busLng = parseFloat(activeRouteObj.ultimaUbicacion.longitud);
+      const busLat = parseFloat(activeRouteObj.ultimaUbicacion.latitud);
+
+      if (lastFocusedRouteIdRef.current !== selectedRouteIdStr) {
+        lastFocusedRouteIdRef.current = selectedRouteIdStr;
+
+        map.flyTo({
+          center: [busLng, busLat],
+          zoom: is3DActiveRef.current ? 17 : 16.5,
+          speed: 1.3,
+          curve: 1.2,
+          essential: true
+        });
+      }
+    }
+  }, [selectedRouteIdStr, activeRoutes]);
 
   // Capa personalizada de Three.js para renderizar el autobús 3D
   const customLayerRef = useRef({
@@ -163,15 +210,15 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
                     let hasBlue = false;
                     for (let i = 0; i < data.length; i += 4) {
                       const r = data[i];
-                      const g = data[i+1];
-                      const b = data[i+2];
+                      const g = data[i + 1];
+                      const b = data[i + 2];
 
                       // Detectar azul predominante en la paleta
                       if (b > r * 1.3 && b > g * 1.1) {
                         // Cambiar a amarillo escolar (#FFB300 -> R:255, G:179, B:0)
                         data[i] = 255;
-                        data[i+1] = 179;
-                        data[i+2] = 0;
+                        data[i + 1] = 179;
+                        data[i + 2] = 0;
                         hasBlue = true;
                       }
                     }
@@ -320,7 +367,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    
+
     const layer = customLayerRef.current;
     if (layer && layer.busModel) {
       layer.busModel.visible = is3DActive;
@@ -328,14 +375,13 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
     }
 
     // Ocultar o mostrar el marcador 2D del autobús seleccionado
-    if (selectedRoute?.route?.id) {
-      const selectedId = selectedRoute.route.id;
-      const markerObj = busMarkersRef.current[selectedId];
+    if (selectedRouteIdStr) {
+      const markerObj = busMarkersRef.current[selectedRouteIdStr];
       if (markerObj && markerObj.element) {
         markerObj.element.style.display = is3DActive ? 'none' : 'flex';
       }
     }
-  }, [is3DActive, selectedRoute?.route?.id]);
+  }, [is3DActive, selectedRouteIdStr]);
 
   // Alternar vista 3D tipo Uber (cámara descentrada)
   const handleToggle3D = () => {
@@ -382,7 +428,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
             bearing: 0,
             duration: 1000
           });
-          
+
           if (selectedRoute && lastSelectedRouteCoordsRef.current && streetMatchedCoords.length > 0) {
             const bounds = new mapboxgl.LngLatBounds();
             bounds.extend(lastSelectedRouteCoordsRef.current);
@@ -547,56 +593,9 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
       const allRoutesSourceId = 'all-routes-source';
       const allRoutesLayerId = 'all-routes-layer';
 
-      if (showAllRoutes && activeRoutes.length > 0) {
-        const geojson = {
-          type: 'FeatureCollection',
-          features: activeRoutes.map((r, index) => {
-            const rawPoints = r.puntosProgramados || r.route?.puntosRuta || [];
-            const pathCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
-            const color = ROUTE_COLORS[index % ROUTE_COLORS.length];
-            return {
-              type: 'Feature',
-              properties: {
-                routeId: r.route?.id,
-                color: color,
-                nombre: r.route?.nombre
-              },
-              geometry: {
-                type: 'LineString',
-                coordinates: pathCoords
-              }
-            };
-          }).filter(f => f.geometry.coordinates.length > 0)
-        };
-
-        if (map.getSource(allRoutesSourceId)) {
-          map.getSource(allRoutesSourceId).setData(geojson);
-        } else {
-          map.addSource(allRoutesSourceId, {
-            type: 'geojson',
-            data: geojson
-          });
-
-          map.addLayer({
-            id: allRoutesLayerId,
-            type: 'line',
-            source: allRoutesSourceId,
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': ['get', 'color'],
-              'line-width': 4,
-              'line-opacity': 0.75
-            }
-          });
-        }
-      } else {
-        // Limpiar capa multi-ruta si está desactivada o no hay rutas
-        if (map.getLayer(allRoutesLayerId)) map.removeLayer(allRoutesLayerId);
-        if (map.getSource(allRoutesSourceId)) map.removeSource(allRoutesSourceId);
-      }
+      // Limpiar cualquier capa/fuente de trazo recto desadaptado
+      if (map.getLayer(allRoutesLayerId)) map.removeLayer(allRoutesLayerId);
+      if (map.getSource(allRoutesSourceId)) map.removeSource(allRoutesSourceId);
 
       if (!map.getLayer('3d-model')) {
         map.addLayer(customLayerRef.current);
@@ -632,7 +631,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
         if (busMarkersRef.current[routeId]) {
           const markerObj = busMarkersRef.current[routeId];
           markerObj.marker.setLngLat([lng, lat]);
-          
+
           const element = markerObj.element;
           const iconDiv = element.querySelector('.bus-icon-wrapper');
           if (iconDiv) {
@@ -723,7 +722,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
         }
       });
 
-      // --- DIBUJAR TRAYECTO (POLILÍNEA) Y PARADAS DE LA RUTA ENFOCADA ---
+      // --- DIBUJAR TRAYECTO (POLILÍNEA OPTIMIZADA POR CALLES) Y PARADAS DE LA RUTA ENFOCADA ---
       routeMarkersRef.current.forEach(m => m.remove());
       routeMarkersRef.current = [];
 
@@ -733,91 +732,78 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
 
       if (rawPoints.length > 0) {
         const pathCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
-        const lineCoords = streetMatchedCoords.length > 0 ? streetMatchedCoords : pathCoords;
-        lineCoords.forEach(c => cameraCoords.push(c));
+        pathCoords.forEach(c => cameraCoords.push(c));
 
-        // Actualizar o crear Source de GeoJSON
-        const geojson = {
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: lineCoords
+        // Dibujar polilínea GeoJSON del trayecto adaptado a calles reales ÚNICAMENTE cuando esté lista
+        if (streetMatchedCoords.length > 0) {
+          streetMatchedCoords.forEach(c => cameraCoords.push(c));
+
+          const geojson = {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: streetMatchedCoords
+            }
+          };
+
+          if (map.getSource(sourceId)) {
+            map.getSource(sourceId).setData(geojson);
+          } else {
+            map.addSource(sourceId, {
+              type: 'geojson',
+              data: geojson
+            });
+
+            map.addLayer({
+              id: layerId,
+              type: 'line',
+              source: sourceId,
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#10B981', // Verde esmeralda optimizado
+                'line-width': 5,
+                'line-opacity': 0.85
+              }
+            });
           }
-        };
-
-        if (map.getSource(sourceId)) {
-          map.getSource(sourceId).setData(geojson);
-        } else {
-          map.addSource(sourceId, {
-            type: 'geojson',
-            data: geojson
-          });
-
-          map.addLayer({
-            id: layerId,
-            type: 'line',
-            source: sourceId,
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': '#10B981', // Verde esmeralda
-              'line-width': 5,
-              'line-opacity': 0.8
+        } else if (map.getSource(sourceId)) {
+          // Ocultar la línea temporalmente mientras se obtiene la geometría adaptada a carreteras
+          map.getSource(sourceId).setData({
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: []
             }
           });
         }
 
-        // Crear marcadores de Hito de Inicio (A) e Hito de Escuela (B)
-        const startPt = pathCoords[0];
-        const endPt = pathCoords[pathCoords.length - 1];
+        // Dibujar marcadores circulares numerados en los puntos de control de la ruta
+        pathCoords.forEach((pt, idx) => {
+          const el = document.createElement('div');
+          el.style.width = '24px';
+          el.style.height = '24px';
+          el.style.borderRadius = '50%';
+          el.style.background = idx === 0 ? '#22C55E' : idx === pathCoords.length - 1 ? '#EF4444' : '#F59E0B';
+          el.style.border = '2px solid white';
+          el.style.boxShadow = '0 2px 6px rgba(0,0,0,0.4)';
+          el.style.color = 'white';
+          el.style.fontSize = '11px';
+          el.style.fontWeight = '800';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.cursor = 'pointer';
+          el.innerHTML = (idx + 1).toString();
+          el.title = idx === 0 ? 'Origen' : idx === pathCoords.length - 1 ? 'Destino Final' : `Punto ${idx + 1}`;
 
-        // Inicio (A)
-        const elStart = document.createElement('div');
-        elStart.style.background = '#22C55E';
-        elStart.style.color = 'white';
-        elStart.style.padding = '4px 8px';
-        elStart.style.borderRadius = '100px';
-        elStart.style.fontSize = '10px';
-        elStart.style.fontWeight = '700';
-        elStart.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-        elStart.innerHTML = '🏁 Inicio (A)';
-        const startMarker = new mapboxgl.Marker({ element: elStart, anchor: 'bottom' })
-          .setLngLat(startPt)
-          .addTo(map);
-        routeMarkersRef.current.push(startMarker);
-
-        // Fin (B)
-        const elEnd = document.createElement('div');
-        elEnd.style.background = '#EF4444';
-        elEnd.style.color = 'white';
-        elEnd.style.padding = '4px 8px';
-        elEnd.style.borderRadius = '100px';
-        elEnd.style.fontSize = '10px';
-        elEnd.style.fontWeight = '700';
-        elEnd.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-        elEnd.innerHTML = '🏫 Escuela (B)';
-        const endMarker = new mapboxgl.Marker({ element: elEnd, anchor: 'bottom' })
-          .setLngLat(endPt)
-          .addTo(map);
-        routeMarkersRef.current.push(endMarker);
-
-        // Paradas intermedias
-        pathCoords.slice(1, -1).forEach((pt, idx) => {
-          const elStop = document.createElement('div');
-          elStop.style.width = '10px';
-          elStop.style.height = '10px';
-          elStop.style.borderRadius = '50%';
-          elStop.style.background = '#F59E0B';
-          elStop.style.border = '2px solid white';
-          elStop.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
-          elStop.title = `Parada ${idx + 1}`;
-
-          const stopMarker = new mapboxgl.Marker({ element: elStop, anchor: 'center' })
+          const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
             .setLngLat(pt)
             .addTo(map);
-          routeMarkersRef.current.push(stopMarker);
+
+          routeMarkersRef.current.push(marker);
         });
 
         // Actualizar geocercas en paradas
@@ -831,7 +817,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
                 { units: 'meters' }
               );
               if (dist <= 200) isNearBus = true;
-            } catch (e) {}
+            } catch (e) { }
           }
           return {
             type: 'Feature',
@@ -981,7 +967,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
                 if (lastDeviationQueryRef.current !== lastQueryKey) {
                   lastDeviationQueryRef.current = lastQueryKey;
                   const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${currentPoint.join(',')};${destination.join(',')}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-                  
+
                   fetch(url)
                     .then(res => res.json())
                     .then(data => {
@@ -1055,8 +1041,16 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
         });
       }
 
-      // Enfocar cámara sobre los marcadores dibujados
-      adjustCamera(cameraCoords);
+      // Verificar si la ruta seleccionada tiene una ubicación en vivo para priorizar el acercamiento al autobús
+      const hasLiveBusLocation = selectedRouteIdStr && activeRoutes.some(r => {
+        const id = r.route?.id || r.route?._id || r._id || r.id;
+        return id === selectedRouteIdStr && r.ultimaUbicacion?.latitud && r.ultimaUbicacion?.longitud;
+      });
+
+      // Enfocar encuadre de trayecto solo si no hay ubicación de autobús en vivo activa
+      if (!hasLiveBusLocation && (!selectedRoute || streetMatchedCoords.length > 0)) {
+        adjustCamera(cameraCoords);
+      }
     };
 
     // Asegurarse de que el estilo del mapa ya cargó antes de añadir capas y fuentes
@@ -1070,11 +1064,11 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '400px' }}>
-      <div 
-        ref={mapContainerRef} 
+      <div
+        ref={mapContainerRef}
         style={{ width: '100%', height: '100%', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--color-border)' }}
       />
-      
+
       {/* Controles flotantes del mapa */}
       {activeRoutes.length > 0 && (
         <div style={{
@@ -1130,12 +1124,12 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
             }}
             title={is3DActive ? "Desactivar vista 3D tipo Uber" : "Activar vista 3D tipo Uber"}
           >
-            <FaCompass 
-              style={{ 
+            <FaCompass
+              style={{
                 fontSize: '16px',
                 transition: 'transform 0.5s ease',
                 transform: is3DActive ? 'rotate(45deg)' : 'none'
-              }} 
+              }}
             />
             <span>{is3DActive ? 'Vista 2D' : 'Vista 3D Uber'}</span>
           </button>
@@ -1176,7 +1170,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
         };
 
         return (
-          <div 
+          <div
             className="glass-panel animate-fade-in"
             style={{
               position: 'absolute',
@@ -1213,7 +1207,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
                   {isRouteActive ? 'EN CURSO' : 'SIN INICIAR'}
                 </span>
                 {onClose && (
-                  <button 
+                  <button
                     onClick={onClose}
                     style={{
                       background: 'rgba(255, 255, 255, 0.12)',
@@ -1254,19 +1248,57 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
               flexDirection: 'column',
               gap: '6px'
             }}>
-              <div style={{ fontSize: '10px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.65)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <FaGraduationCap style={{ color: '#8B5CF6' }} /> Estado de Abordaje
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.65)', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <FaGraduationCap style={{ color: '#8B5CF6' }} /> Estado de Abordaje
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenStudents && onOpenStudents(selectedRoute, 'ALL')}
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.25)',
+                    border: '1px solid rgba(139, 92, 246, 0.45)',
+                    color: '#C084FC',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    padding: '2px 8px',
+                    borderRadius: '100px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Ver listado completo de estudiantes y estado"
+                >
+                  Ver Alumnos ›
+                </button>
               </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', textAlign: 'center' }}>
-                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                <div
+                  onClick={() => onOpenStudents && onOpenStudents(selectedRoute, 'WAITING')}
+                  style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)', cursor: 'pointer' }}
+                  title="Ver estudiantes pendientes"
+                >
                   <div style={{ fontSize: '14px', fontWeight: '800', color: '#60A5FA' }}>{esperandoCount}</div>
                   <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>Esperando</div>
                 </div>
-                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+
+                <div
+                  onClick={() => onOpenStudents && onOpenStudents(selectedRoute, 'BOARDED')}
+                  style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)', cursor: 'pointer' }}
+                  title="Ver estudiantes a bordo"
+                >
                   <div style={{ fontSize: '14px', fontWeight: '800', color: '#A78BFA' }}>{aBordoCount}</div>
                   <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>A Bordo</div>
                 </div>
-                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+
+                <div
+                  onClick={() => onOpenStudents && onOpenStudents(selectedRoute, 'DROPPED')}
+                  style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '4px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.05)', cursor: 'pointer' }}
+                  title="Ver estudiantes entregados"
+                >
                   <div style={{ fontSize: '14px', fontWeight: '800', color: '#34D399' }}>{completadoCount}</div>
                   <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.6)', fontWeight: '600' }}>Completado</div>
                 </div>

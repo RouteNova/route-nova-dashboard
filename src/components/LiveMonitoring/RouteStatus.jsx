@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaRoute, FaClock, FaUserTie, FaBus, FaPlayCircle, FaPauseCircle, FaList } from 'react-icons/fa';
+import { FaRoute, FaClock, FaUserTie, FaBus, FaPlayCircle, FaPauseCircle, FaList, FaGraduationCap } from 'react-icons/fa';
 
 const ROUTE_COLORS = [
   '#3B82F6', // Azul
@@ -14,7 +14,7 @@ const ROUTE_COLORS = [
   '#6366F1'  // Indigo
 ];
 
-export default function RouteStatus({ activeRoutes = [], allRoutes = [], selectedRouteId, onSelectRoute }) {
+export default function RouteStatus({ activeRoutes = [], allRoutes = [], selectedRouteId, onSelectRoute, onOpenStudents }) {
   const [tab, setTab] = useState('active'); // 'active' | 'passive' | 'all'
 
   // Calcula el porcentaje de progreso basado en la distancia recorrida del trayecto (Punto A -> Punto B)
@@ -222,11 +222,37 @@ export default function RouteStatus({ activeRoutes = [], allRoutes = [], selecte
                 }}
               >
                 {/* Cabecera Ruta */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                   <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--color-text)' }}>
                     {routeName}
                   </span>
-                  {getStatusBadge(isActive ? 'en_curso' : (item.estado || item.route?.estado || 'programada'))}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenStudents) onOpenStudents(item, 'ALL');
+                      }}
+                      className="btn-secondary"
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        borderRadius: '100px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        background: 'rgba(139, 92, 246, 0.12)',
+                        color: '#8B5CF6',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        cursor: 'pointer'
+                      }}
+                      title="Ver alumnos asignados y estado de abordaje"
+                    >
+                      <FaGraduationCap /> Alumnos
+                    </button>
+                    {getStatusBadge(isActive ? 'en_curso' : (item.estado || item.route?.estado || 'programada'))}
+                  </div>
                 </div>
 
                 {/* Info básica */}

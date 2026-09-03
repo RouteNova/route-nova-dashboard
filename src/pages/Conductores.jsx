@@ -15,11 +15,17 @@ import {
 import { conductorService, userService, routeService } from '../services/api';
 import { toast } from 'react-toastify';
 import ModalPortal from '../components/common/ModalPortal';
+import Pagination from '../components/common/Pagination';
+
+const ITEMS_PER_PAGE = 20;
 
 export default function Conductores() {
   const [conductores, setConductores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Rutas disponibles
   const [routes, setRoutes] = useState([]);
@@ -45,12 +51,19 @@ export default function Conductores() {
 
   // Cargar perfiles de conductores con debounce para búsqueda
   useEffect(() => {
+    setCurrentPage(1);
     const delayDebounceFn = setTimeout(() => {
       fetchConductores();
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
+
+  const totalPages = Math.ceil(conductores.length / ITEMS_PER_PAGE);
+  const paginatedConductores = conductores.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   // Cargar catálogo de rutas en el inicio
   useEffect(() => {
@@ -295,6 +308,22 @@ export default function Conductores() {
         </div>
       ) : (
         <>
+          {/* Indicador de Cantidad de Registros */}
+          <div className="records-counter-indicator animate-fade-in">
+            <div className="records-counter-left">
+              <span>Total de registros:</span>
+              <span className="records-counter-badge">{conductores.length}</span>
+              <span className="records-counter-text">
+                {conductores.length === 1 ? 'Conductor registrado' : 'Conductores registrados'}
+              </span>
+            </div>
+            {searchQuery && (
+              <span className="records-counter-filter-info">
+                Filtrado por texto de búsqueda
+              </span>
+            )}
+          </div>
+
           {/* TABLA DE ESCRITORIO (resoluciones > 768px por CSS) */}
           <div className="glass-panel users-table-container animate-fade-in">
             <table className="users-table">
@@ -309,7 +338,7 @@ export default function Conductores() {
                 </tr>
               </thead>
               <tbody>
-                {conductores.map((cond) => {
+                {paginatedConductores.map((cond) => {
                   const driverName = cond.nombre || cond.usuarioId?.nombre || 'Sin nombre';
                   const driverEmail = cond.correo || cond.usuarioId?.correo || 'Sin correo';
                   return (
@@ -379,7 +408,7 @@ export default function Conductores() {
 
           {/* TARJETAS DE MÓVIL/TABLET (resoluciones <= 768px por CSS) */}
           <div className="users-cards-grid animate-fade-in">
-            {conductores.map((cond) => {
+            {paginatedConductores.map((cond) => {
               const driverName = cond.nombre || cond.usuarioId?.nombre || 'Sin nombre';
               const driverEmail = cond.correo || cond.usuarioId?.correo || 'Sin correo';
               return (
@@ -428,6 +457,15 @@ export default function Conductores() {
               );
             })}
           </div>
+
+          {/* Componente de Paginación */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={conductores.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </>
       )}
 

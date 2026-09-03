@@ -18,11 +18,17 @@ import {
 import { padreService, studentService } from '../services/api';
 import { toast } from 'react-toastify';
 import ModalPortal from '../components/common/ModalPortal';
+import Pagination from '../components/common/Pagination';
+
+const ITEMS_PER_PAGE = 20;
 
 export default function Padres() {
   // Listas de datos y estados de carga
   const [padres, setPadres] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filtro de búsqueda
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,12 +65,19 @@ export default function Padres() {
 
   // Cargar padres cuando cambia el filtro (con debounce)
   useEffect(() => {
+    setCurrentPage(1);
     const delayDebounceFn = setTimeout(() => {
       fetchPadres();
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
+
+  const totalPages = Math.ceil(padres.length / ITEMS_PER_PAGE);
+  const paginatedPadres = padres.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const fetchPadres = async () => {
     setLoading(true);
@@ -355,6 +368,22 @@ export default function Padres() {
         </div>
       ) : (
         <>
+          {/* Indicador de Cantidad de Registros */}
+          <div className="records-counter-indicator animate-fade-in">
+            <div className="records-counter-left">
+              <span>Total de registros:</span>
+              <span className="records-counter-badge">{padres.length}</span>
+              <span className="records-counter-text">
+                {padres.length === 1 ? 'Padre / Tutor registrado' : 'Padres / Tutores registrados'}
+              </span>
+            </div>
+            {searchQuery && (
+              <span className="records-counter-filter-info">
+                Filtrado por texto de búsqueda
+              </span>
+            )}
+          </div>
+
           {/* TABLA DE ESCRITORIO (Visible en resoluciones > 768px por CSS) */}
           <div className="glass-panel users-table-container animate-fade-in">
             <table className="users-table">
@@ -369,7 +398,7 @@ export default function Padres() {
                 </tr>
               </thead>
               <tbody>
-                {padres.map((padre) => (
+                {paginatedPadres.map((padre) => (
                   <tr key={padre._id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -445,7 +474,7 @@ export default function Padres() {
 
           {/* TARJETAS DE MÓVIL/TABLET (Visible en resoluciones <= 768px por CSS) */}
           <div className="users-cards-grid animate-fade-in">
-            {padres.map((padre) => (
+            {paginatedPadres.map((padre) => (
               <div className="glass-panel user-card" key={padre._id}>
                 <div className="user-card-header">
                   <div className="user-card-avatar">
@@ -514,6 +543,15 @@ export default function Padres() {
               </div>
             ))}
           </div>
+
+          {/* Componente de Paginación */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={padres.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </>
       )}
 

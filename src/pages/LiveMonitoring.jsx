@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import MapView from '../components/LiveMonitoring/MapView';
 import RouteStatus from '../components/LiveMonitoring/RouteStatus';
 import IncidentPanel from '../components/LiveMonitoring/IncidentPanel';
+import RouteStudentsModal from '../components/LiveMonitoring/RouteStudentsModal';
 import { FaBroadcastTower, FaSyncAlt } from 'react-icons/fa';
 
 export default function LiveMonitoring() {
@@ -16,6 +17,17 @@ export default function LiveMonitoring() {
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [selectedRouteDetails, setSelectedRouteDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+
+  // Modal de Estudiantes asignados y su estado de abordaje
+  const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
+  const [studentsModalRoute, setStudentsModalRoute] = useState(null);
+  const [studentsModalTab, setStudentsModalTab] = useState('ALL');
+
+  const handleOpenStudentsModal = (routeData, tab = 'ALL') => {
+    setStudentsModalRoute(routeData);
+    setStudentsModalTab(tab);
+    setIsStudentsModalOpen(true);
+  };
 
   // Lista agregada de todas las incidencias de las rutas activas
   const [allIncidents, setAllIncidents] = useState([]);
@@ -391,10 +403,19 @@ export default function LiveMonitoring() {
     }
   };
 
-  // Manejar selección de ruta en curso para enfocar detalles
+  // Manejar selección de ruta en curso o programada para enfocar detalles
   const handleSelectRoute = async (routeId) => {
     setSelectedRouteId(routeId);
     setDetailsLoading(true);
+
+    // 1. Asignar inmediatamente la ruta local para que el mapa renderice el trayecto por carreteras sin esperar
+    const localRoute = allRoutes.find(r => (r._id === routeId || r.id === routeId)) ||
+                       activeRoutes.find(r => (r._id === routeId || r.id === routeId || r.route?.id === routeId || r.route?._id === routeId));
+
+    if (localRoute) {
+      setSelectedRouteDetails(localRoute);
+    }
+
     try {
       if (socketRef.current && !activeRouteIdsRef.current.has(routeId)) {
         socketRef.current.emit('join_route', { routeId }, (res) => {
@@ -404,21 +425,26 @@ export default function LiveMonitoring() {
           }
         });
       }
+
       const details = await routeService.getRouteMonitoring(routeId);
-      setSelectedRouteDetails(details);
-      
-      // Sincronizar incidencias activas de la ruta enfocada en el panel general
-      if (Array.isArray(details.incidenciasActivas)) {
-        const routeName = details.route?.nombre || 'Ruta';
-        const mapped = details.incidenciasActivas.map(inc => ({
-          ...inc,
-          routeName
-        }));
-        setAllIncidents(mapped);
+      if (details) {
+        setSelectedRouteDetails(details);
+        
+        // Sincronizar incidencias activas de la ruta enfocada en el panel general
+        if (Array.isArray(details.incidenciasActivas)) {
+          const routeName = details.route?.nombre || details.nombre || 'Ruta';
+          const mapped = details.incidenciasActivas.map(inc => ({
+            ...inc,
+            routeName
+          }));
+          setAllIncidents(mapped);
+        }
       }
     } catch (err) {
-      console.error('Error loading route monitoring detail:', err);
-      setSelectedRouteDetails(null);
+      console.warn('Monitoreo en vivo no disponible para la ruta seleccionada (se mantiene información de ruta):', err);
+      if (!localRoute) {
+        setSelectedRouteDetails(null);
+      }
     } finally {
       setDetailsLoading(false);
     }
@@ -452,6 +478,7 @@ export default function LiveMonitoring() {
           selectedRoute={selectedRouteDetails}
           onSelectRoute={handleSelectRoute}
           onClose={() => { setSelectedRouteId(null); setSelectedRouteDetails(null); }}
+          onOpenStudents={handleOpenStudentsModal}
         />
       </div>
 
@@ -470,6 +497,7 @@ export default function LiveMonitoring() {
             allRoutes={allRoutes} 
             selectedRouteId={selectedRouteId} 
             onSelectRoute={handleSelectRoute}
+            onOpenStudents={handleOpenStudentsModal}
           />
         </div>
 
@@ -514,6 +542,14 @@ export default function LiveMonitoring() {
           )}
         </div>
       </div>
+      
+      {/* Modal interactivo para visualizar los estudiantes asignados a la ruta y su estado de abordaje */}
+      <RouteStudentsModal
+        isOpen={isStudentsModalOpen}
+        onClose={() => setIsStudentsModalOpen(false)}
+        routeData={studentsModalRoute}
+        initialTab={studentsModalTab}
+      />
     </div>
   );
 }

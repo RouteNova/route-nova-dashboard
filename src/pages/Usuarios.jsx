@@ -17,12 +17,18 @@ import { userService, padreService, conductorService } from '../services/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import ModalPortal from '../components/common/ModalPortal';
+import Pagination from '../components/common/Pagination';
+
+const ITEMS_PER_PAGE = 20;
 
 export default function Usuarios() {
   const { user: currentUser } = useAuth();
   // Listas y estados de carga
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filtros de búsqueda
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,12 +64,19 @@ export default function Usuarios() {
 
   // Cargar usuarios al iniciar o cuando cambian los filtros (con debounce en búsqueda)
   useEffect(() => {
+    setCurrentPage(1);
     const delayDebounceFn = setTimeout(() => {
       fetchUsers();
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, roleFilter]);
+
+  const totalPages = Math.ceil(users.length / ITEMS_PER_PAGE);
+  const paginatedUsers = users.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -467,6 +480,22 @@ export default function Usuarios() {
         </div>
       ) : (
         <>
+          {/* Indicador de Cantidad de Registros */}
+          <div className="records-counter-indicator animate-fade-in">
+            <div className="records-counter-left">
+              <span>Total de registros:</span>
+              <span className="records-counter-badge">{users.length}</span>
+              <span className="records-counter-text">
+                {users.length === 1 ? 'Usuario registrado' : 'Usuarios registrados'}
+              </span>
+            </div>
+            {(searchQuery || roleFilter) && (
+              <span className="records-counter-filter-info">
+                Filtrado por criterios de búsqueda
+              </span>
+            )}
+          </div>
+
           {/* TABLA DE ESCRITORIO (Visible en resoluciones > 768px por CSS) */}
           <div className="glass-panel users-table-container animate-fade-in">
             <table className="users-table">
@@ -480,7 +509,7 @@ export default function Usuarios() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {paginatedUsers.map((user) => (
                   <tr key={user._id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -541,7 +570,7 @@ export default function Usuarios() {
 
           {/* TARJETAS DE MÓVIL/TABLET (Visible en resoluciones <= 768px por CSS) */}
           <div className="users-cards-grid animate-fade-in">
-            {users.map((user) => (
+            {paginatedUsers.map((user) => (
               <div className="glass-panel user-card" key={user._id}>
                 <div className="user-card-header">
                   <div className="user-card-avatar">
@@ -602,6 +631,15 @@ export default function Usuarios() {
               </div>
             ))}
           </div>
+
+          {/* Componente de Paginación */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={users.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         </>
       )}
 
