@@ -1,0 +1,32 @@
+name: CI - RouteNova Dashboard
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build:
+    name: Build & Lint Validation
+    runs-on: ubuntu-latest
+
+    env:
+      VITE_API_URL: https://api.routenova.example.com/api
+      VITE_MAPBOX_ACCESS_TOKEN: pk.ci_test_token_placeholder
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Build Web Application
+        run: npm run build

@@ -29,21 +29,41 @@ const ROUTE_COLORS = [
 
 // Consultar la API de Direcciones de Mapbox para obtener la geometría adaptada a calles reales
 async function fetchStreetMatchedRoute(points) {
-  if (points.length < 2) return points;
+  if (!points || points.length < 2) return points;
   try {
-    const slicePoints = points.slice(0, 25);
-    const waypoints = slicePoints.map(p => p.join(',')).join(';');
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-    if (data.routes && data.routes.length > 0) {
-      return data.routes[0].geometry.coordinates;
+    if (points.length <= 25) {
+      const waypoints = points.map(p => p.join(',')).join(';');
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.routes && data.routes.length > 0) {
+        return data.routes[0].geometry.coordinates;
+      }
+    } else {
+      let allMatched = [];
+      for (let i = 0; i < points.length - 1; i += 24) {
+        const slice = points.slice(i, i + 25);
+        const waypoints = slice.map(p => p.join(',')).join(';');
+        const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypoints}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.routes && data.routes.length > 0) {
+          const segCoords = data.routes[0].geometry.coordinates;
+          if (allMatched.length > 0) {
+            allMatched.push(...segCoords.slice(1));
+          } else {
+            allMatched.push(...segCoords);
+          }
+        } else {
+          allMatched.push(...slice);
+        }
+      }
+      if (allMatched.length > 0) return allMatched;
     }
   } catch (e) {
     console.error('Error fetching street matched route:', e);
   }
-  return points; // Fallback
+  return points; // Fallback completo preservando todos los puntos
 }
 
 export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, onClose, onOpenStudents }) {
@@ -53,6 +73,11 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
   // Guardamos referencias para marcadores y capas para actualizarlos dinámicamente
   const busMarkersRef = useRef({});
   const routeMarkersRef = useRef([]);
+
+  // Referencias para el trazo multi-ruta: caché de coordenadas por carretera y marcadores de inicio/fin
+  const allRoutesStreetCacheRef = useRef({});
+  const allRoutesMarkersRef = useRef([]);
+  const allRoutesLayerIdsRef = useRef([]);
 
   // Estados de control 3D y calles
   const [is3DActive, setIs3DActive] = useState(false);
@@ -99,16 +124,20 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
       return;
     }
 
+    const isValidCoord = (lng, lat) => typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
     const rawPoints = selectedRoute.puntosProgramados || selectedRoute.route?.puntosRuta || selectedRoute.puntosRuta || [];
-    if (rawPoints.length < 2) {
-      const simpleCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+    const validRawPoints = rawPoints.filter(p => isValidCoord(parseFloat(p.longitud), parseFloat(p.latitud)));
+
+    if (validRawPoints.length < 2) {
+      const simpleCoords = validRawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
       setStreetMatchedCoords(simpleCoords);
       return;
     }
 
     let isSubscribed = true;
     const fetchCoords = async () => {
-      const pathCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+      const pathCoords = validRawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
       const matched = await fetchStreetMatchedRoute(pathCoords);
       if (matched && matched.length > 0) {
         streetRouteCacheRef.current[selectedRouteIdStr] = matched;
@@ -143,16 +172,18 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
       const busLng = parseFloat(activeRouteObj.ultimaUbicacion.longitud);
       const busLat = parseFloat(activeRouteObj.ultimaUbicacion.latitud);
 
-      if (lastFocusedRouteIdRef.current !== selectedRouteIdStr) {
-        lastFocusedRouteIdRef.current = selectedRouteIdStr;
+      if (typeof busLng === 'number' && typeof busLat === 'number' && !isNaN(busLng) && !isNaN(busLat) && busLat >= -90 && busLat <= 90 && busLng >= -180 && busLng <= 180) {
+        if (lastFocusedRouteIdRef.current !== selectedRouteIdStr) {
+          lastFocusedRouteIdRef.current = selectedRouteIdStr;
 
-        map.flyTo({
-          center: [busLng, busLat],
-          zoom: is3DActiveRef.current ? 17 : 16.5,
-          speed: 1.3,
-          curve: 1.2,
-          essential: true
-        });
+          map.flyTo({
+            center: [busLng, busLat],
+            zoom: is3DActiveRef.current ? 17 : 16.5,
+            speed: 1.3,
+            curve: 1.2,
+            essential: true
+          });
+        }
       }
     }
   }, [selectedRouteIdStr, activeRoutes]);
@@ -590,12 +621,138 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
       }
 
       // --- DIBUJAR TODAS LAS RUTAS SI EL MODO MULTI-RUTA ESTÁ ACTIVO ---
-      const allRoutesSourceId = 'all-routes-source';
-      const allRoutesLayerId = 'all-routes-layer';
 
-      // Limpiar cualquier capa/fuente de trazo recto desadaptado
-      if (map.getLayer(allRoutesLayerId)) map.removeLayer(allRoutesLayerId);
-      if (map.getSource(allRoutesSourceId)) map.removeSource(allRoutesSourceId);
+      // Limpiar capas y fuentes previas de multi-ruta
+      allRoutesLayerIdsRef.current.forEach(({ sourceId: sId, layerId: lId, outlineId: oId }) => {
+        if (map.getLayer(oId)) map.removeLayer(oId);
+        if (map.getLayer(lId)) map.removeLayer(lId);
+        if (map.getSource(sId)) map.removeSource(sId);
+      });
+      allRoutesLayerIdsRef.current = [];
+
+      // Limpiar marcadores de inicio/fin de multi-ruta
+      allRoutesMarkersRef.current.forEach(m => m.remove());
+      allRoutesMarkersRef.current = [];
+
+      // Dibujar polilíneas y marcadores de inicio/fin para TODAS las rutas activas
+      if (showAllRoutes && activeRoutes.length > 0) {
+        activeRoutes.forEach((r, index) => {
+          const routeId = r.route?.id || r.route?._id || r._id || r.id;
+          const rawPoints = r.puntosProgramados || r.route?.puntosRuta || r.puntosRuta || [];
+          if (rawPoints.length < 2) return;
+
+          const routeColor = ROUTE_COLORS[index % ROUTE_COLORS.length];
+          const pathCoords = rawPoints.map(p => [parseFloat(p.longitud), parseFloat(p.latitud)]);
+          const perRouteSourceId = `all-route-src-${routeId}`;
+          const perRouteLayerId = `all-route-line-${routeId}`;
+          const perRouteOutlineId = `all-route-outline-${routeId}`;
+
+          // Función para dibujar la polilínea de una ruta en el mapa
+          const drawRouteLine = (coords) => {
+            if (!map || coords.length < 2) return;
+            const geojson = {
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates: coords }
+            };
+
+            if (map.getSource(perRouteSourceId)) {
+              map.getSource(perRouteSourceId).setData(geojson);
+            } else {
+              map.addSource(perRouteSourceId, { type: 'geojson', data: geojson });
+
+              // Capa de contorno (borde oscuro debajo de la línea coloreada)
+              map.addLayer({
+                id: perRouteOutlineId,
+                type: 'line',
+                source: perRouteSourceId,
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: {
+                  'line-color': 'rgba(0, 0, 0, 0.4)',
+                  'line-width': 7,
+                  'line-opacity': 0.6
+                }
+              });
+
+              // Capa principal coloreada
+              map.addLayer({
+                id: perRouteLayerId,
+                type: 'line',
+                source: perRouteSourceId,
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: {
+                  'line-color': routeColor,
+                  'line-width': 4.5,
+                  'line-opacity': 0.85
+                }
+              });
+            }
+
+            allRoutesLayerIdsRef.current.push({
+              sourceId: perRouteSourceId,
+              layerId: perRouteLayerId,
+              outlineId: perRouteOutlineId
+            });
+          };
+
+          // Usar caché o solicitar coordenadas adaptadas a calles
+          if (allRoutesStreetCacheRef.current[routeId]) {
+            drawRouteLine(allRoutesStreetCacheRef.current[routeId]);
+          } else {
+            // Dibujar inmediatamente con puntos crudos como respaldo
+            drawRouteLine(pathCoords);
+
+            // Solicitar trazado por calles en paralelo (sin bloquear)
+            fetchStreetMatchedRoute(pathCoords).then(matched => {
+              if (matched && matched.length > 0) {
+                allRoutesStreetCacheRef.current[routeId] = matched;
+                // Actualizar la fuente existente si aún está en el mapa
+                if (map.getSource(perRouteSourceId)) {
+                  map.getSource(perRouteSourceId).setData({
+                    type: 'Feature',
+                    properties: {},
+                    geometry: { type: 'LineString', coordinates: matched }
+                  });
+                }
+              }
+            }).catch(() => { /* fallback ya dibujado */ });
+          }
+
+          // Marcador de INICIO de la ruta (bandera verde)
+          const startCoord = pathCoords[0];
+          const startEl = document.createElement('div');
+          startEl.style.cssText = `
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #22C55E; border: 2.5px solid white;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4), 0 0 0 3px rgba(34,197,94,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; cursor: pointer;
+          `;
+          startEl.innerHTML = '🏫';
+          startEl.title = `Inicio: ${r.route?.nombre || 'Ruta'}`;
+          const startMarker = new mapboxgl.Marker({ element: startEl, anchor: 'center' })
+            .setLngLat(startCoord)
+            .addTo(map);
+          allRoutesMarkersRef.current.push(startMarker);
+
+          // Marcador de FIN de la ruta (bandera roja)
+          const endCoord = pathCoords[pathCoords.length - 1];
+          const endEl = document.createElement('div');
+          endEl.style.cssText = `
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #EF4444; border: 2.5px solid white;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4), 0 0 0 3px rgba(239,68,68,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; cursor: pointer;
+          `;
+          endEl.innerHTML = '🏁';
+          endEl.title = `Destino: ${r.route?.nombre || 'Ruta'}`;
+          const endMarker = new mapboxgl.Marker({ element: endEl, anchor: 'center' })
+            .setLngLat(endCoord)
+            .addTo(map);
+          allRoutesMarkersRef.current.push(endMarker);
+        });
+      }
 
       if (!map.getLayer('3d-model')) {
         map.addLayer(customLayerRef.current);
@@ -1122,7 +1279,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
               backgroundColor: is3DActive ? '#10B981' : 'rgba(15, 23, 42, 0.95)',
               color: '#ffffff'
             }}
-            title={is3DActive ? "Desactivar vista 3D tipo Uber" : "Activar vista 3D tipo Uber"}
+            title={is3DActive ? "Desactivar vista 3D" : "Activar vista 3D"}
           >
             <FaCompass
               style={{
@@ -1131,7 +1288,7 @@ export default function MapView({ activeRoutes, selectedRoute, onSelectRoute, on
                 transform: is3DActive ? 'rotate(45deg)' : 'none'
               }}
             />
-            <span>{is3DActive ? 'Vista 2D' : 'Vista 3D Uber'}</span>
+            <span>{is3DActive ? 'Vista 2D' : 'Vista 3D'}</span>
           </button>
         </div>
       )}
