@@ -174,7 +174,8 @@ export default function RouteStudentsModal({ isOpen, onClose, routeData, initial
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase().trim();
         const nameMatch = s.nombre?.toLowerCase().includes(q);
-        const carnetMatch = s.carnet?.toLowerCase().includes(q);
+        const carnetVal = s.carnet || s.codigoQR || s.codigoNFC || '';
+        const carnetMatch = carnetVal.toLowerCase().includes(q);
         const parentMatch = s.padreId?.nombre?.toLowerCase().includes(q);
         return nameMatch || carnetMatch || parentMatch;
       }
@@ -396,7 +397,7 @@ export default function RouteStudentsModal({ isOpen, onClose, routeData, initial
                           {s.nombre}
                         </span>
                         <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                          Carnet: <strong>{s.carnet || 'N/A'}</strong>
+                          Carnet: <strong>{s.carnet || s.codigoQR || s.codigoNFC || 'N/A'}</strong>
                         </span>
                       </div>
 
