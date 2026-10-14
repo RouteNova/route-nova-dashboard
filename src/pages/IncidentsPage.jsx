@@ -25,6 +25,24 @@ export default function IncidentsPage() {
     return `${year}-${month}-${day}`;
   };
 
+  const parseLocalDate = (dateStr, isEndOfDay = false) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (isEndOfDay) {
+        return new Date(year, month, day, 23, 59, 59, 999);
+      }
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
+    const d = new Date(dateStr);
+    if (isEndOfDay) d.setHours(23, 59, 59, 999);
+    else d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -36,6 +54,7 @@ export default function IncidentsPage() {
   // Detalles e Interacciones
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [incidentToDelete, setIncidentToDelete] = useState(null);
   const [submittingDelete, setSubmittingDelete] = useState(false);
@@ -74,20 +93,33 @@ export default function IncidentsPage() {
 
   // Cambiar estado de la incidencia (PATCH)
   const handleChangeStatus = async (id, newStatus) => {
+    setUpdatingStatusId(id);
     setUpdatingStatus(true);
     try {
       // Llamada a la API real
       const response = await incidentService.updateIncidentStatus(id, newStatus);
+      const updatedStatus = response?.status || newStatus;
       setDbIncidents(prev => 
-        prev.map(inc => inc._id === id ? { ...inc, status: response.status } : inc)
+        prev.map(inc => (inc._id === id || inc.id === id) ? { ...inc, status: updatedStatus } : inc)
       );
       // Actualizar en el modal
-      setSelectedIncident(prev => prev && prev._id === id ? { ...prev, status: response.status } : prev);
-      toast.success(`Incidencia actualizada a "${newStatus === 'open' ? 'Pendiente' : newStatus === 'in_progress' ? 'En revisión' : newStatus === 'resolved' ? 'Resuelta' : 'Cerrada'}".`);
+      setSelectedIncident(prev => 
+        (prev && (prev._id === id || prev.id === id)) ? { ...prev, status: updatedStatus } : prev
+      );
+      const statusLabels = {
+        open: 'Pendiente',
+        in_progress: 'En revisión',
+        resolved: 'Resuelta',
+        closed: 'Cerrada'
+      };
+      toast.success(`Incidencia actualizada a "${statusLabels[newStatus] || newStatus}".`);
     } catch (err) {
       console.error('Error al actualizar estado de la incidencia:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Error al actualizar el estado de la incidencia.';
+      toast.error(errorMsg);
     } finally {
       setUpdatingStatus(false);
+      setUpdatingStatusId(null);
     }
   };
 
@@ -142,22 +174,16 @@ export default function IncidentsPage() {
       if (incidentRouteId !== routeFilter) return false;
     }
 
-    // 5. Filtro de Rango de Fechas (Por defecto el día actual si no se seleccionan específicas)
-    const todayStr = getTodayString();
-    const queryStartDate = startDate || todayStr;
-    const queryEndDate = endDate || todayStr;
-
+    // 5. Filtro de Rango de Fechas (Timezone-safe)
     if (incident.createdAt) {
       const incidentDate = new Date(incident.createdAt);
-      if (queryStartDate) {
-        const startLimit = new Date(queryStartDate);
-        startLimit.setHours(0, 0, 0, 0);
-        if (incidentDate < startLimit) return false;
+      if (startDate) {
+        const startLimit = parseLocalDate(startDate, false);
+        if (startLimit && incidentDate < startLimit) return false;
       }
-      if (queryEndDate) {
-        const endLimit = new Date(queryEndDate);
-        endLimit.setHours(23, 59, 59, 999);
-        if (incidentDate > endLimit) return false;
+      if (endDate) {
+        const endLimit = parseLocalDate(endDate, true);
+        if (endLimit && incidentDate > endLimit) return false;
       }
     }
 
@@ -211,6 +237,8 @@ export default function IncidentsPage() {
           incidents={filteredIncidents}
           onSelect={setSelectedIncident}
           onDelete={handleOpenDeleteModal}
+          onChangeStatus={handleChangeStatus}
+          updatingStatusId={updatingStatusId}
           isAdmin={isAdmin}
         />
       )}

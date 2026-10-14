@@ -1,5 +1,12 @@
 import React from 'react';
-import { FaEye, FaTrashAlt, FaExclamationTriangle } from 'react-icons/fa';
+import { 
+  FaEye, 
+  FaTrashAlt, 
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaUndo,
+  FaSyncAlt
+} from 'react-icons/fa';
 
 // Helpers de traducción y formato
 export const translateType = (type) => {
@@ -52,18 +59,25 @@ export const getSeverityStyle = (severity) => {
 export const getStatusStyle = (status) => {
   switch (status) {
     case 'closed':
-      return { background: 'rgba(156, 163, 175, 0.1)', color: '#9CA3AF', border: '1px solid rgba(156, 163, 175, 0.2)' };
+      return { background: 'rgba(156, 163, 175, 0.15)', color: '#9CA3AF', border: '1px solid rgba(156, 163, 175, 0.3)' };
     case 'resolved':
-      return { background: 'rgba(16, 185, 129, 0.1)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.2)' };
+      return { background: 'rgba(16, 185, 129, 0.15)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.3)' };
     case 'in_progress':
-      return { background: 'rgba(59, 130, 246, 0.1)', color: '#60A5FA', border: '1px solid rgba(59, 130, 246, 0.2)' };
+      return { background: 'rgba(59, 130, 246, 0.15)', color: '#3B82F6', border: '1px solid rgba(59, 130, 246, 0.3)' };
     case 'open':
     default:
-      return { background: 'rgba(251, 191, 36, 0.1)', color: '#FBBF24', border: '1px solid rgba(251, 191, 36, 0.2)' };
+      return { background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', border: '1px solid rgba(245, 158, 11, 0.3)' };
   }
 };
 
-export default function IncidentTable({ incidents, onSelect, onDelete, isAdmin }) {
+export default function IncidentTable({ 
+  incidents, 
+  onSelect, 
+  onDelete, 
+  onChangeStatus,
+  updatingStatusId,
+  isAdmin 
+}) {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -87,9 +101,13 @@ export default function IncidentTable({ incidents, onSelect, onDelete, isAdmin }
         </thead>
         <tbody>
           {incidents.map((incident) => {
-            const shortId = `INC-${(incident._id || incident.id || '').slice(-4).toUpperCase()}`;
+            const incId = incident._id || incident.id;
+            const shortId = `INC-${(incId || '').slice(-4).toUpperCase()}`;
+            const isRowUpdating = updatingStatusId === incId;
+            const isResolvedOrClosed = incident.status === 'resolved' || incident.status === 'closed';
+
             return (
-              <tr key={incident._id || incident.id}>
+              <tr key={incId}>
                 <td style={{ fontWeight: '700', color: 'var(--color-primary)' }}>
                   {shortId}
                 </td>
@@ -118,28 +136,100 @@ export default function IncidentTable({ incidents, onSelect, onDelete, isAdmin }
                   </span>
                 </td>
                 <td style={{ textAlign: 'center' }}>
-                  <span 
-                    style={{
-                      display: 'inline-block',
-                      padding: '4px 10px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      ...getStatusStyle(incident.status)
-                    }}
-                  >
-                    {translateStatus(incident.status)}
-                  </span>
+                  {/* Selector interactivo de estado directamente en la tabla */}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
+                    {isRowUpdating ? (
+                      <span 
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '14px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          ...getStatusStyle(incident.status)
+                        }}
+                      >
+                        <FaSyncAlt style={{ animation: 'spin 1s linear infinite' }} /> Guardando...
+                      </span>
+                    ) : (
+                      <select
+                        value={incident.status || 'open'}
+                        onChange={(e) => onChangeStatus && onChangeStatus(incId, e.target.value)}
+                        disabled={isRowUpdating}
+                        title="Haz clic para cambiar el estado de la incidencia"
+                        aria-label={`Cambiar estado de ${shortId}`}
+                        style={{
+                          padding: '4px 22px 4px 10px',
+                          borderRadius: '14px',
+                          fontSize: '11.5px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          outline: 'none',
+                          appearance: 'none',
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'none',
+                          textAlign: 'center',
+                          transition: 'all 0.2s ease',
+                          ...getStatusStyle(incident.status)
+                        }}
+                      >
+                        <option value="open">🟡 Pendiente</option>
+                        <option value="in_progress">🔵 En revisión</option>
+                        <option value="resolved">🟢 Resuelta</option>
+                        <option value="closed">⚪ Cerrada</option>
+                      </select>
+                    )}
+                    {!isRowUpdating && (
+                      <span style={{
+                        position: 'absolute',
+                        right: '7px',
+                        pointerEvents: 'none',
+                        fontSize: '9px',
+                        opacity: 0.7
+                      }}>▼</span>
+                    )}
+                  </div>
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   <div className="actions-cell" style={{ justifyContent: 'flex-end', gap: '8px' }}>
+                    {/* Botón rápido para marcar como resuelta o reabrir */}
+                    {onChangeStatus && (
+                      !isResolvedOrClosed ? (
+                        <button 
+                          onClick={() => onChangeStatus(incId, 'resolved')}
+                          className="action-btn success"
+                          title="Marcar como Resuelta directamente"
+                          disabled={isRowUpdating}
+                          style={{ color: '#10B981', background: 'rgba(16, 185, 129, 0.1)' }}
+                        >
+                          <FaCheckCircle />
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => onChangeStatus(incId, 'open')}
+                          className="action-btn warning"
+                          title="Reabrir incidencia a Pendiente"
+                          disabled={isRowUpdating}
+                          style={{ color: '#F59E0B', background: 'rgba(245, 158, 11, 0.1)' }}
+                        >
+                          <FaUndo />
+                        </button>
+                      )
+                    )}
+
+                    {/* Botón de inspección y detalle */}
                     <button 
                       onClick={() => onSelect(incident)}
                       className="action-btn edit"
-                      title="Ver detalle de incidencia"
+                      title="Ver detalle y mapa"
                       style={{ color: 'var(--color-primary)', background: 'rgba(37, 99, 235, 0.1)' }}
                     >
                       <FaEye />
                     </button>
+
+                    {/* Botón de eliminación (Admin) */}
                     {isAdmin && (
                       <button 
                         onClick={() => onDelete(incident)}

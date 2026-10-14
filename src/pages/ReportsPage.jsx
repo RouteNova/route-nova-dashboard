@@ -23,6 +23,24 @@ export default function ReportsPage() {
     return `${year}-${month}-${day}`;
   };
 
+  const parseLocalDate = (dateStr, isEndOfDay = false) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (isEndOfDay) {
+        return new Date(year, month, day, 23, 59, 59, 999);
+      }
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
+    const d = new Date(dateStr);
+    if (isEndOfDay) d.setHours(23, 59, 59, 999);
+    else d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
   // Estados de Filtros
   const [startDate, setStartDate] = useState(getTodayString());
   const [endDate, setEndDate] = useState(getTodayString());
@@ -159,25 +177,19 @@ export default function ReportsPage() {
       rawList = routesHistoryData;
     }
 
-    const todayStr = getTodayString();
-    const queryStartDate = startDate || todayStr;
-    const queryEndDate = endDate || todayStr;
-
     return rawList.filter(row => {
       // 1. Filtro de Fecha Desde
-      if (queryStartDate) {
+      if (startDate) {
         const rowDate = new Date(row.date || row.createdAt || row.startTime);
-        const startLimit = new Date(queryStartDate);
-        startLimit.setHours(0, 0, 0, 0);
-        if (rowDate < startLimit) return false;
+        const startLimit = parseLocalDate(startDate, false);
+        if (startLimit && rowDate < startLimit) return false;
       }
 
       // 2. Filtro de Fecha Hasta
-      if (queryEndDate) {
+      if (endDate) {
         const rowDate = new Date(row.date || row.createdAt || row.startTime);
-        const endLimit = new Date(queryEndDate);
-        endLimit.setHours(23, 59, 59, 999);
-        if (rowDate > endLimit) return false;
+        const endLimit = parseLocalDate(endDate, true);
+        if (endLimit && rowDate > endLimit) return false;
       }
 
       // 3. Filtro de Ruta

@@ -9,7 +9,9 @@ import {
   FaPhoneAlt, 
   FaEnvelope,
   FaRoute,
-  FaCheckCircle
+  FaCheckCircle,
+  FaSyncAlt,
+  FaUndo
 } from 'react-icons/fa';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -113,9 +115,23 @@ export default function IncidentDetail({ incident, onClose, onChangeStatus, upda
             
             {/* Título y Tipo */}
             <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '800', color: 'var(--color-text)' }}>
-                {incident.title || translateType(incident.type)}
-              </h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+                <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '800', color: 'var(--color-text)' }}>
+                  {incident.title || translateType(incident.type)}
+                </h4>
+                <span 
+                  style={{
+                    display: 'inline-block',
+                    padding: '4px 12px',
+                    borderRadius: '16px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    ...getStatusStyle(incident.status)
+                  }}
+                >
+                  {translateStatus(incident.status)}
+                </span>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
                 <span 
                   style={{
@@ -204,41 +220,161 @@ export default function IncidentDetail({ incident, onClose, onChangeStatus, upda
 
             {/* Gestión del Estado de Resolución */}
             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-              <label style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--color-text)', display: 'block', marginBottom: '8px' }}>
-                Gestión de Estado Operativo:
-              </label>
-              
-              <select
-                value={incident.status || 'reportado'}
-                onChange={handleStatusChange}
-                disabled={updatingStatus}
-                className="input-field"
-                style={{ 
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  ...getStatusStyle(incident.status)
-                }}
-              >
-                <option value="reportado">🔴 Reportado (Pendiente)</option>
-                <option value="en_proceso">🟡 En Proceso (Atendiendo)</option>
-                <option value="resuelto">🟢 Resuelto (Cerrado)</option>
-              </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-text)', margin: 0 }}>
+                  Gestión y Resolución Operativa:
+                </label>
+                {updatingStatus && (
+                  <span style={{ fontSize: '12px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div className="spinner" style={{ width: '13px', height: '13px', borderWidth: '2px' }}></div>
+                    Guardando cambios...
+                  </span>
+                )}
+              </div>
 
-              {updatingStatus && (
-                <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-                  <div className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }}></div>
-                  Actualizando estado...
+              {/* Botones de acción rápida con 1 clic */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                {incident.status !== 'resolved' && (
+                  <button
+                    type="button"
+                    onClick={() => onChangeStatus(incident._id || incident.id, 'resolved')}
+                    disabled={updatingStatus}
+                    style={{
+                      background: '#10B981',
+                      border: '1px solid #10B981',
+                      color: '#FFFFFF',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      fontWeight: '700',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12.5px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)'
+                    }}
+                  >
+                    <FaCheckCircle /> Marcar como Resuelta
+                  </button>
+                )}
+
+                {incident.status !== 'in_progress' && incident.status !== 'resolved' && incident.status !== 'closed' && (
+                  <button
+                    type="button"
+                    onClick={() => onChangeStatus(incident._id || incident.id, 'in_progress')}
+                    disabled={updatingStatus}
+                    className="btn-secondary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      fontWeight: '600',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px'
+                    }}
+                  >
+                    <FaSyncAlt /> Poner En Revisión
+                  </button>
+                )}
+
+                {incident.status === 'resolved' && (
+                  <button
+                    type="button"
+                    onClick={() => onChangeStatus(incident._id || incident.id, 'closed')}
+                    disabled={updatingStatus}
+                    className="btn-secondary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      fontWeight: '600',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px'
+                    }}
+                  >
+                    🔒 Cerrar Definitivamente
+                  </button>
+                )}
+
+                {(incident.status === 'resolved' || incident.status === 'closed') && (
+                  <button
+                    type="button"
+                    onClick={() => onChangeStatus(incident._id || incident.id, 'open')}
+                    disabled={updatingStatus}
+                    className="btn-secondary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      fontWeight: '600',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px'
+                    }}
+                  >
+                    <FaUndo /> Reabrir a Pendiente
+                  </button>
+                )}
+              </div>
+
+              {/* Selector detallado de estado */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: '600' }}>
+                  O cambiar estado manualmente:
                 </span>
-              )}
+                <select
+                  value={incident.status || 'open'}
+                  onChange={handleStatusChange}
+                  disabled={updatingStatus}
+                  className="input-field"
+                  style={{ 
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    height: '40px',
+                    ...getStatusStyle(incident.status)
+                  }}
+                >
+                  <option value="open">🟡 Pendiente (Reportada / Abierta)</option>
+                  <option value="in_progress">🔵 En Revisión (En Atención Operativa)</option>
+                  <option value="resolved">🟢 Resuelta (Solucionada en Ruta)</option>
+                  <option value="closed">⚪ Cerrada (Archivada)</option>
+                </select>
+              </div>
             </div>
 
           </div>
 
           {/* Footer */}
-          <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <button onClick={onClose} className="btn-secondary" style={{ padding: '8px 20px' }}>
               Cerrar
             </button>
+            {incident.status !== 'resolved' && incident.status !== 'closed' && (
+              <button
+                type="button"
+                onClick={() => onChangeStatus(incident._id || incident.id, 'resolved')}
+                disabled={updatingStatus}
+                style={{
+                  background: '#10B981',
+                  border: '1px solid #10B981',
+                  color: '#FFFFFF',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: '700',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px'
+                }}
+              >
+                <FaCheckCircle /> Marcar como Resuelta
+              </button>
+            )}
           </div>
         </div>
       </div>

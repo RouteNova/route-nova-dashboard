@@ -950,6 +950,18 @@ body {
   border-color: rgba(239, 68, 68, 0.3);
 }
 
+.action-btn.success:hover {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.action-btn.warning:hover {
+  background: rgba(245, 158, 11, 0.12);
+  color: #F59E0B;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
 /* Grid de Tarjetas para Tablets/Móviles (<= 768px) */
 .users-cards-grid {
   display: none;
